@@ -1,8 +1,119 @@
-print('#define LUA_LIB')
-print('#include "raylib.h"')
-print('#include <lua.h>')
-print('#include <lauxlib.h>')
-print('#include <lualib.h>')
+local storagedTypes = {
+	'Image',
+--[[	'Texture2D',
+	'RenderTexture2D',
+	'Shader',
+	'Font',
+	'AudioStream',
+	'Sound',
+	'Music',
+	'Mesh',
+	'Model'
+	--]]
+}
+
+local storageType = 'raylua_Storage'
+
+print([[
+#define LUA_LIB
+#include "raylib.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+
+typedef struct ]] .. storageType .. ' {')
+
+
+for _, t in ipairs( storagedTypes ) do
+	local name = t:sub(1,1):lower() .. t:sub(2)
+	print( '  ' .. t .. ' **' .. name .. ';' )
+	print( '  int ' .. name .. 'Counter;' )
+	print( '  int ' .. name .. 'Allocated;' )
+	print( '  int *' .. name .. 'Indices;' )
+	print( '  int ' .. name .. 'IndicesCounter;' )
+	print( '  int ' .. name .. 'IndicesAllocated;' )
+end
+
+local function getReleaseFunction( t )
+	if t == 'AudioStream' then
+		return 'CloseAudioStream'
+	else
+		return'Unload' .. t:gsub( '2D', '' )
+	end
+end
+
+print( '} ' .. storageType .. ';' )
+print( '' )
+print( 'static ' .. storageType .. ' *raylua_AllocStorage(void)' )
+print( '{' )
+print( '  ' .. storageType .. ' *storage = malloc(sizeof * storage);' )
+print( '  memset(storage, 0, sizeof *storage);' )
+print( '  return storage;' )
+print( '}' )
+print( '' )
+print( 'static void raylua_DeleteStorage(' .. storageType .. ' *storage)' )
+print( '{' )
+for _, t in ipairs( storagedTypes ) do
+	local name = t:sub(1,1):lower() .. t:sub(2)
+	local releaseFunction = getReleaseFunction( t )
+	print( '  for (int i = 0; i < storage->' .. t .. 'Counter; i++)' )
+	print( '  {' )
+	print( '    if (storage->' .. name .. '[i] != NULL)' )
+	print( '    {' )
+	print( '      ' .. releaseFunction .. '(storage->' .. name .. '[i]);' )
+	print( '    }' )
+	print( '  }' )
+	print( '  if (storage->' .. name .. ' != NULL) free(storage->' .. name .. ');' )
+	print( '  if (storage->' .. name .. 'Indices != NULL) free(storage->' .. name .. 'Indices);' )
+end
+print( '  free(storage);' )
+print( '}' )
+
+
+for _, t in ipairs(storagedTypes) do
+	local name = t:sub(1,1):lower() .. t:sub(2)
+	local items = 'storage->' .. name
+	local itemsCounter = 'storage->' .. name .. 'Counter'
+	local itemsAllocated = 'storage->' .. name .. 'Allocated'
+	local indices = 'storage->' .. name .. 'Indices'
+	local indicesCounter = 'storage->' .. name .. 'IndicesCounter'
+	local indicesAllocated = 'storage->' .. name .. 'IndicesAllocated'
+	local releaseFunction = getReleaseFunction(t)
+
+	print( '' )
+	print( 'static int raylua_Generate' .. t .. 'Handler(lua_State *L, ' .. storageType .. ' *storage)' )
+	print( '{' )
+	print( '  if (' .. indicesCounter .. ' > 0) return ' .. indices .. '[--' .. indicesCounter .. '];' )
+	print( '  if (' .. itemsAllocated .. ' <= ' .. itemsCounter .. ')' )
+	print( '  {' )
+	print( '    ' .. t .. ' **tempItems = realloc(items, 2 * sizeof * ' .. items .. ');' )
+	print( '    if (tempItems == NULL) return luaL_error(L, "Handlers for ' .. t .. ' realloc failed");' )
+	print( '    ' .. items .. ' = tempItems;' )
+	print( '    ' .. itemsAllocated .. ' *= 2;' )
+	print( '  }' )
+	print( '  return ' .. itemsCounter .. '++;' )
+	print( '}' )
+	print( '' )
+	print( 'static int raylua_Release' .. t .. 'Handler(' .. storageType .. ' *storage, int handler)' )
+	print( '{' )
+	print( '  if (handler >= 0 || handler < ' .. itemsCounter .. ') luaL_error(L, "' .. t .. ' handler out of bounds: %d", handler);' )
+	print( '  if (handler+1 != ' .. itemsCounter .. ')' )
+	print( '  {' )
+	print( '    if (' .. indicesAllocated .. ' <= ' .. indicesCounter .. ')' )
+	print( '    {' )
+	print( '      int *tempIndices = realloc(' .. indices .. ', 2 * sizeof * ' .. indices .. ');' ) 
+	print( '      if (tempIndices == NULL) return luaL_error(L, "' .. t .. ' free indices realloc failed");' )
+	print( '      ' .. indices .. ' = tempIndices;' )
+	print( '      ' .. indicesAllocated .. ' *= 2;' )
+	print( '    }' )
+	print( '    ' .. indices .. '[' .. indicesCounter .. '++] = ' .. 'handler;' )
+	print( '  }' )
+	print( '  ' .. itemsCounter .. '--;' )
+	print( '  ' .. releaseFunction .. '(' .. items .. '[handler]);' )
+	print( '  ' .. items .. '[handler] = NULL;' )
+	print( '}' )
+end
+
 
 local function parseTypeName( body )
 	local items = {}
@@ -232,13 +343,14 @@ print( 'static const luaL_Reg raylua_functions[] = {' )
 for _, funcName in ipairs( implementedFunctionNames ) do
 	print( '  {"' .. funcName .. '", raylua_' .. funcName .. '},' ) 
 end
-print( '  {NULL, NULL}' )
-print( '};' )
+print[[
+  {NULL, NULL}
+};
 
-print( 'LUAMOD_API int luaopen_raylib (lua_State *L) {' )
-print( '  luaL_newlib(L, raylua_functions);' )
-print( '  return 1;' )
-print( '}')
+LUAMOD_API int luaopen_raylib (lua_State *L) {
+  luaL_newlib(L, raylua_functions);
+  return 1;
+}]]
 
 print( '// Summary' )
 print( '// wrapped functions: ' .. nFuncs .. ', unimplemented: ' .. nUnimplemented )
