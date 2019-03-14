@@ -238,12 +238,33 @@ local BLACKLIST = {
 	GetDroppedFiles = true, -- returns const char **
 	UpdateCamera = true, -- nothing to update actually
 	UpdateVrTracking = true, -- nothing to update actually
+	GetWindowHandle = true,
+	UpdateTexture = true,
 
 	SetTraceLogLevel = true,
 	SetTraceLogExit = true,
 	SetTraceLogCallback = true,
 	TraceLog = true,
 
+	LoadImagePro = true,
+	GetWaveData = true, -- need output arrays
+	DrawPolyEx = true, -- need input arrays
+	DrawPolyExLines = true, -- need input arrays
+	LoadImageEx = true, -- need input arrays
+	LoadImagePro = true,
+	GetImageData = true,
+	GetImageDataNormalized = true,
+	ImageExtractPalette = true, -- need output arrays
+	LoadFontData = true,
+	LoadWaveEx = true,
+	UpdateSound = true,
+	GetWaveData = true,
+	UpdateAudioStream = true,
+
+	SetShaderValue = true,
+	SetShaderValueV = true,
+
+	-- Redundant functions
 	DrawPixelV = true,
 	DrawLineV = true,
 	DrawCircleV = true,
@@ -284,16 +305,16 @@ for line in io.lines(...) do
 
 		local bodyName, bodyArgs, comment = s:match( 'RLAPI (.+)%((.-)%);%s*//%s*(.+)' )
 		local funcName, funcReturnType = parseTypeName( bodyName )
-		local funcArgs, funcArgsNames = {}, {}
-		if bodyArgs ~= 'void' then
-			for bodySingleArg in bodyArgs:gmatch( '([%w%s%*]+)' ) do
-				funcArgs[#funcArgs+1] = {parseTypeName( bodySingleArg )}
-				funcArgsNames[#funcArgsNames+1] = funcArgs[#funcArgs][1]
-			end
-		end
 
 		local funcCode = {}
 		if not BLACKLIST[funcName] then
+			local funcArgs, funcArgsNames = {}, {}
+			if bodyArgs ~= 'void' then
+				for bodySingleArg in bodyArgs:gmatch( '([%w%s%*]+)' ) do
+					funcArgs[#funcArgs+1] = {parseTypeName( bodySingleArg )}
+					funcArgsNames[#funcArgsNames+1] = funcArgs[#funcArgs][1]
+				end
+			end
 			nFuncs = nFuncs + 1
 			funcCode[#funcCode+1] = ( '\n// ' .. comment )
 			funcCode[#funcCode+1] = ( 'static int raylua_' .. funcName ..'(lua_State *L)' )
