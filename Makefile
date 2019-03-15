@@ -2,10 +2,14 @@ LUA ?= 5.1
 
 LUA_HEADERS = -I./include/lua$(LUA)
 
+RAYLIB_PATH = ./raylib
 RAYLIB_STATIC = raylib/src/libraylib.a
 
+init:
+	git submodule update --init --recursive
+
 gen:
-	lua raylib-gen.lua include/raylib.h > raylib.c
+	lua raylib-gen.lua $(RAYLIB)/src/raylib.h > raylib.c
 
 libraylib.a:
 	cd raylib/src && $(MAKE) PLATFORM=PLATFORM_DESKTOP CFLAGS+=-fPIC
