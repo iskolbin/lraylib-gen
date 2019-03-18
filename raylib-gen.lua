@@ -8,7 +8,14 @@ local resources = {
 	'Sound',
 	'Music',
 	'Mesh',
-	'Model'
+	'Model',
+	'Material',
+	'Wave',
+	'TextureCubemap',
+}
+
+local aliases = {
+	TextureCubemap = 'Texture'
 }
 
 local function isResource(t)
@@ -18,6 +25,15 @@ local function isResource(t)
 		end
 	end
 	return false
+end
+
+local function isResourceReference(r)
+	local t = r:match('%s*%*?%s*(%w+)')
+	if t then
+		return isResource(t)
+	else
+		return false
+	end
 end
 
 print[[
@@ -32,6 +48,15 @@ print[[
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+
+#define ISL_SLEEP_IMPLEMENTATION
+#include "isl_sleep/isl_sleep.h"
+
+static int isl_Sleep(lua_State *L) {
+  int us = luaL_checkinteger(L, -1);
+  isl_usleep(us);
+  return 0;
+}
 
 typedef struct raylua_Storage {]]
 
@@ -51,6 +76,7 @@ for _, t in ipairs( resources ) do
 end
 
 local function getReleaseFunction( t, v )
+	t = aliases[t] or t
 	if t ~= 'Mesh' then
 		v = '*' .. v
 	end
@@ -222,6 +248,10 @@ local function nCheckNumbers( index, n )
 	return table.concat( t, ', ' )
 end
 
+local function formatResourceType( res )
+	return res:match('%s*%*?%s*(%w+)')
+end
+
 local function argConvert( argType, index )
 	if argType == 'int' or
 		argType == 'unsigned' or
@@ -253,6 +283,8 @@ local function argConvert( argType, index )
 		return 'GetColor(luaL_checkinteger(L, ' .. index .. '))'
 	elseif isResource( argType ) then
 		return '*raylua_Deref' .. argType .. 'Handler(L, luaL_checkinteger(L, ' .. index .. '))'
+	elseif isResourceReference( argType ) then
+		return 'raylua_Deref' .. formatResourceType( argType ) .. 'Handler(L, luaL_checkinteger(L, ' .. index .. '))'
 	else
 		UNIMPLEMETED_ARGS[argType] = true
 		return 'UNIMPLEMENTED_FOR_' .. argType, index, true
@@ -463,7 +495,8 @@ end
 print[[
 static const luaL_Reg raylua_functions[] = {
   {"InitStorage", raylua_InitStorage},
-  {"DeleteStorage", raylua_DeleteStorage},]]
+  {"DeleteStorage", raylua_DeleteStorage},
+	{"Sleep", isl_Sleep},]]
 for _, funcName in ipairs( implementedFunctionNames ) do
 	print( '  {"' .. funcName .. '", raylua_' .. funcName .. '},' )
 end

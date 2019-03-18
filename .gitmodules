@@ -1,3 +1,6 @@
 [submodule "raylib"]
 	path = raylib
 	url = https://github.com/raysan5/raylib
+[submodule "isl_sleep"]
+	path = isl_sleep
+	url = git@github.com:iskolbin/isl_sleep
