@@ -1,0 +1,91 @@
+local aliases = {
+	I = 'Image',
+	T = 'Texture2D',
+	R = 'RenderTexture2D',
+	A = 'AudioStream',
+	M = 'Music',
+	W = 'Wave',
+	S = 'Sound',
+	M = 'Model',
+	H = 'Mesh',
+	E = 'Material',
+	D = 'Shader',
+}
+
+local luatoc = {
+	Image = 'I>unwrap_Image:{Image}',
+	Color = 'i>GetColor:Color',
+	Vector2 = 'ff>{@wrap Vector2}:{Vector2}',
+	Vector3 = 'fff>{@wrap Vector3}:{Vector3}',
+	Vector4 = 'ffff>{@wrap Vector4}:{Vector4}',
+	Rectangle = 'ffff>{@wrap Rectangle}:{Rectangle}',
+	Matrix = 'ffffffffffffffff>{@wrap Matrix}:{Matrix}',
+}
+
+local ctolua = {
+	Image = '{Image}>wrap_Image:I',
+	Color = 'Color>ColorToInt:i',
+	Vector2 = '{Vector2}>{@unwrap x y}:ff',
+	Vector3 = '{Vector3}>{@unwrap x y z}:ff',
+	Vector4 = '{Vector4}>{@unwrap x y z w}:ff',
+	Rectangle = '{Rectangle}>{@unwrap x y width height}:ffff',
+	Matrix = '{Matrix}>{@unwrap m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 m11 m12 m13 m14 m15 m16}:ffffffffffffffff',
+}
+
+local libs = {
+	core = {
+		fps = '>GetFPS:i',
+		time = '>GetTime:f',
+		clipboard = '>GetClipboardText:s',
+		setclipboard = 's>SetClipboardText:',
+	},
+
+	window = {
+		init = 'iis>InitWindow:',
+		close = '>CloseWindow:',
+		isready = '>IsWindowReady:b',
+		isminimized = '>IsWindowMinimized:b',
+		isresized = '>IsWindowResized:b',
+		ishidden = '>IsWindowHidden:b',
+		togglefullscreen = '>ToggleFullscreen:',
+		setvisible = {input = 'b', dispatch = {[1] = {[1] = 'b>UnhideWindow:', [0] = 'b>HideWindow:'}}},
+		seticon = 'I>SetWindowIcon:',
+		settitle = 's>SetWindowTitle:',
+		setpos = 'ii>SetWindowPosition:',
+		setmonitor = 'i>SetWindowMonitor:',
+		setminsize = 'ii>SetWindowMinSize:',
+		setsize = 'ii>SetWindowSize:',
+		screenwidth = '>GetScreenWidth:i',
+		screenheight = '>GetScreenHeight:i',
+		monitorcount = '>GetMonitorCount:i',
+		monitorwidth = '>GetMonitorWidth:i',
+		monitorheight = '>GetMonitorHeight:i',
+		monitorphysicalwidth = 'i>GetMonitorPhysicalWidth:i',
+		monitorphysicalheight = 'i>GetMonitorPhysicalHeight:i',
+		monitorname = 'i>GetMonitorName:s',
+		setcursorvisible = {input = 'b', dispatch = {{[1] = {[1] = 'b>ShowCursor:', [0] = 'b>HideCursor:'}}}},
+		setcursorvenabled = {input = 'b', dispatch = {{[1] = {[1] = 'b>EnableCursor:', [0] = 'b>DisableCursor:'}}}},
+		iscursorvisible = '>IsCursorHidden:b',
+	},
+
+	draw = {
+		clear = 'C>ClearBackground:',
+		pixel = 'ffC>DrawPixel:',
+		line = 'fffffC>DrawLineEx:',
+		bezier = '{Vector2}{Vector2}fC>DrawLineBezier:',
+		sector = '{Vector2}fiiC>DrawCircleSector:',
+		gradcircle = 'iifCC>DrawCircleGradient:',
+		gradrect = '{Rectangle}CCCC>DrawRectangleGradientEx:',
+		gradrectv = '{Rectangle}CC>DrawRectangleGradientV:',
+		gradrecth = '{Rectangle}CC>DrawRectangleGradientH:',
+		circle = 'iifC>DrawCircle:',
+		rect = 'iiiiC>DrawRectangle:',
+		triangle = '{Vector2}{Vector2}{Vector2}C>DrawTriangle:',
+		polygon = '*C>DrawPolyEx:',
+		strokecircle = 'iifC>DrawCircleLines:',
+		strokerect = '{Rectangle}fC>DrawRectangleLinesEx:',
+		stroketriangle = '222C>DrawTriangleLinesEx:',
+		strokepolygon = '{@array Vector2}{@len 1}C>DrawPolyExLines:',
+	},
+}
+
