@@ -1,7 +1,7 @@
 local resources = {
 	'Image',
 	'Texture2D',
-	'RenderTexture2D',
+--[[	'RenderTexture2D',
 	'Shader',
 	'Font',
 	'AudioStream',
@@ -11,7 +11,28 @@ local resources = {
 	'Model',
 	'Material',
 	'Wave'
+	--]]
 }
+
+local function pp( str, substitutesTable )
+	local s = (str:gsub( '%$%{(%w-)%}', substitutesTable))
+--	print(s)
+end
+
+
+local function getReleaseFunction( t, v )
+	t = aliases[t] or t
+	if t ~= 'Mesh' then
+		v = '*' .. v
+	end
+	if t == 'AudioStream' then
+		return 'CloseAudioStream(' .. v .. ');'
+	elseif t == 'Music' then
+		return 'UnloadMusicStream(' .. v .. ');'
+	else
+		return'Unload' .. t:gsub( '2D', '' ) .. '(' .. v .. ');'
+	end
+end
 
 local function isResource( t )
 	for _, t_ in pairs( resources ) do
@@ -128,46 +149,83 @@ local function argConvert( argType, index )
 end
 
 local function printStruct( structName, structFields )
-	print( 'typedef struct Wrapped' .. structName .. ' {' .. structName .. ' *content;' .. '} Wrapped' .. structName .. ';' )
-	print()
-	print( 'static int raylua_' .. structName .. '_metatable_index(lua_State *L)' )
-	print( '{' )
-	print( '  Wrapped' .. structName .. ' *obj = luaL_checkudata(L, 1, "raylua_' .. structName .. '");' )
-	print( '  if (obj->content == NULL) return luaL_error(L, "Resource was released");' )
-	print( '  const char *key = luaL_checkstring(L, 2);' )
+	pp([[
+typedef struct Wrapped${structName} {
+  ${structName} content;
+  int released;
+} Wrapped${structName};
+]], {structName = structName})
+
 	for i, type_name in ipairs(structFields) do
-		local type_, name = type_name[1], type_name[2]
-		print( '  if (strcmp("' .. name .. '", key) == 0)' )
-		print( '  {' )
-		print( '    ' .. type_ .. ' result = obj->content.' .. name .. ';' )
-		local v, n = returnConvert( type_ )
-		print( '    ' .. v .. ';' )
-		print( '    return ' .. (n or 1) .. ';' )
-		print( '  }' )
+		local resultType, name = type_name[1], type_name[2]
+		local converter, returnCount = returnConvert( resultType )
+		returnCount = returnCount or 1
+		
+		pp([[
+static int raylua_${structName}_get_${name}(lua_State *L)
+{
+  Wrapped${structName} *obj = luaL_checkudata(L, 1, "raylua_${structName}");
+  if (obj->content == NULL) return luaL_error(L, "Resource[${structName}] was released");
+  ${resultType} result = obj->content.${name};
+  ${converter};
+  return ${returnCount};
+}
+]], {
+		structName = structName,
+		name = name,
+		resultType = resultType,
+		returnCount = returnCount,
+		converter = converter
+	})
+ 	end
+
+	pp([[
+static int raylua_${structName}_metatable_gc(lua_State *L)
+{
+  Wrapped${structName} *obj = luaL_checkudata(L, 1, "raylua_${structName}");
+  if (!obj->released)
+  {
+    Unload${structName}(obj->content);
+    obj->released = 1;
+  }
+  return 0;
+}
+
+static const luaL_Reg raylua_${structName}_metatable = {
+  {"__gc", raylua_${structName}_metatable_gc},]], {structName = structName})
+
+	for i, type_name in ipairs(structFields) do
+		pp([[
+  {"${name}", raylua_${structName}_get_${name}},]], {
+		name = type_name[2],
+		structName = structName
+	})
 	end
-	print( '  return 0;' )
-	print( '}' )
-	print()
-	print( 'static int raylua_' .. structName .. '_metatable_gc(lua_State *L)' )
-	print( '{' )
-	print( '  Wrapped' .. structName .. ' *obj = luaL_checkudata(L, 1, "raylua_' .. structName .. '");' )
-	print( '  if (obj->content != NULL) {Unload' .. structName .. '(obj->content); obj->content = NULL;}' )
-	print( '  return 0;' )
-	print( '}' )
-	print()
-	print( 'static void raylua_' .. structName .. '_metatable_register(lua_State *L)' )
-	print( '{' )
-	print( '  const luaL_Reg mt = {' )
-	print( '    {"__index", raylua_' .. structName .. '_metatable_index},' )
-	print( '    {"__gc", raylua_' .. structName .. '_metatable_gc},' )
-	print( '    {NULL, NULL}' )
-	print( '  };' )
-	print( '  luaL_metatable(L, "' .. structName .. '_metatable");' )
-	print( '  luaL_register(L, NULL, mt);' )
-	print( '}' )
-	print()
+	pp([[
+  {NULL, NULL}
+};
+]],{})
+
+	pp([[
+static void raylua_${structName}_metatable_register(lua_State *L)
+{
+  luaL_newmetatable(L, "raylua_${structName}");
+  lua_pushvalue(L, -1):
+  lua_setfield(L, -2, "__index")
+  luaL_register(L, NULL, raylua_${structName}_metatable);
+}
+
+static void raylua_${structName}_wrap(lua_State *L, ${structName} *content)
+{
+  Wrapped${structName} *ud = lua_newuserdata(L, sizeof *ud);
+  ud->content = *content;
+  ud->released = 0;
+  luaL_setmetatable(L, "raylua_${structName}");
+}
+]], {structName = structName})
 end
 
+local constants = {}
 local state, t, iscomment
 local struct, fields
 for s in io.lines('raylib/src/raylib.h') do
@@ -182,6 +240,13 @@ for s in io.lines('raylib/src/raylib.h') do
 				state = 'readstruct'
 				struct, fields = t, {}
 			end
+			if not t then
+				-- parse numeric const
+				local constName, constValue = s:match('#define%s+([%w_]-)%s+([%d.]+)')
+				if constValue then
+					constants[constName] = constValue
+				end
+			end
 		elseif state == 'readstruct' then
 			if s:match('%s*}%s*' .. t ..'%s*;') then
 				state = nil
@@ -190,7 +255,6 @@ for s in io.lines('raylib/src/raylib.h') do
 				local ftype, fname = s:match('%s*(%w+)%s+(%w+)%s*;')
 				if ftype and fname then
 					fields[#fields+1] = {ftype, fname}
---					print('Get' .. t .. fname:sub(1,1):upper() .. fname:sub(2))
 				end
 			end
 		end
