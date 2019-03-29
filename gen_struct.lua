@@ -2,19 +2,15 @@ local pp = require( 'pp' )
 local isResource = require( 'resources' ).isResource
 local resourcesList = require( 'resources' ).list
 local cToLua = require( 'converter' ).cToLua
+local finalizer = require( 'converter' ).finalizer
 
 local function printStruct( structType, structFields )
-	local contentType = structType
-	if contentType == 'Mesh' then
-		contentType = 'Mesh*'
-	end
-
 	pp([[
 typedef struct Wrapped${structType} {
-  ${contentType} content;
+  ${structType} content;
   int released;
 } Wrapped${structType};
-]], {structType = structType, contentType = contentType})
+]], {structType = structType, structType = structType})
 
 	for i, type_name in ipairs(structFields) do
 		local resultType, name = type_name[1], type_name[2]
@@ -49,20 +45,23 @@ static int raylua_${structType}_metatable_gc(lua_State *L)
   Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
   if (!obj->released)
   {
-    Unload${structType}(obj->content);
-    obj->released = 1;
+    ${finalizer};
+		obj->released = 1;
   }
   return 0;
 }
 
-static const luaL_Reg raylua_${structType}_metatable = {
-  {"__gc", raylua_${structType}_metatable_gc},]], {structType = structType})
+static const luaL_Reg raylua_${structType}_metatable[] = {
+  {"__gc", raylua_${structType}_metatable_gc},]], {
+		structType = structType,
+		finalizer = finalizer( structType, 'obj->content' ),
+	})
 
 	for i, type_name in ipairs( structFields ) do
 		pp([[
   {"${name}", raylua_${structType}_get_${name}},]], {
 		name = type_name[2],
-		structType = structType
+		structType = structType,
 	})
 	end
 	pp([[
@@ -76,7 +75,7 @@ static void raylua_${structType}_metatable_register(lua_State *L)
   luaL_newmetatable(L, "raylua_${structType}");
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
-  luaL_register(L, NULL, raylua_${structType}_metatable);
+	raylua_register_metatable(L, raylua_${structType}_metatable);
 }
 
 static void raylua_${structType}_wrap(lua_State *L, ${structType} *content)

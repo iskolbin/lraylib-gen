@@ -21,6 +21,9 @@ pp[[
 
 LUAMOD_API int luaopen_raylib (lua_State *L) {
   luaL_newlib(L, raylua_functions);]]
+for _, struct in ipairs( require( 'resources' ).list ) do
+  pp('  raylua_' .. struct .. '_metatable_register(L);' )
+end
 	require( 'gen_constants' )( fileName )
 pp([[
   return 1;

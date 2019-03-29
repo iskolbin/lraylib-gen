@@ -4,14 +4,14 @@ local list = {
 	'RenderTexture2D',
 	'Shader',
 	'Font',
-	'AudioStream',
+	--'AudioStream',
 	'Sound',
 	'Music',
 	'Mesh',
 	'Model',
 	'Material',
 	'Wave',
-	'TextureCubemap',
+	--'TextureCubemap',
 }
 
 return {

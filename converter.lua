@@ -1,11 +1,8 @@
 local isResource = require( 'resources' ).isResource
+local aliases = require( 'aliases' )
 
 local UNIMPLEMETED_ARGS = {}
 local UNIMPLEMENTED_RETURNS = {}
-
-local aliases = {
-	TextureCubemap = 'Texture'
-}
 
 local function pushnumbers( ... )
 	local t = {}
@@ -29,8 +26,8 @@ return {
 
 	finalizer = function( T, v )
 		T = aliases[T] or T
-		if T ~= 'Mesh' then
-			v = '*' .. v
+		if T == 'Mesh' then
+			v = '&' .. v
 		end
 		if T == 'AudioStream' then
 			return 'CloseAudioStream(' .. v .. ');'

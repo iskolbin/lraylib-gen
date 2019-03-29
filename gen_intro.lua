@@ -13,6 +13,14 @@ pp[[
 #include <lauxlib.h>
 #include <lualib.h>
 
+static void raylua_register_metatable(lua_State *L, const luaL_Reg *l) {
+#if LUA_VERSION_NUM <= 501
+	luaL_register(L, NULL, l);
+#else
+	luaL_setfuncs(L, l, 0);
+#endif
+}
+
 #define ISL_SLEEP_IMPLEMENTATION
 #include "isl_sleep/isl_sleep.h"
 
