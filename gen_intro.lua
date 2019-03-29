@@ -21,11 +21,4 @@ static void raylua_register_metatable(lua_State *L, const luaL_Reg *l) {
 #endif
 }
 
-#define ISL_SLEEP_IMPLEMENTATION
-#include "isl_sleep/isl_sleep.h"
-
-static int isl_Sleep(lua_State *L) {
-  int us = luaL_checkinteger(L, -1);
-  isl_usleep(us);
-  return 0;
-}]]
+]]

@@ -7,16 +7,17 @@ require( 'gen_intro' )
 require( 'gen_struct' )( fileName )
 
 local nFuncs, nUnimplemented, nUnimplenentedArgs, nUnimplementedReturns, implementedFunctionNames = require( 'gen_functions' )( fileName )
-pp[[
-
-static const luaL_Reg raylua_functions[] = {
-  {"Sleep", isl_Sleep},]]
-for _, funcName in ipairs( implementedFunctionNames ) do
-	pp( '  {"${funcName}", raylua_${funcName}},', {funcName = funcName} )
+for _, funcName in ipairs( require( 'gen_hand_functions' )) do
+	implementedFunctionNames[#implementedFunctionNames+1] = funcName
 end
 
 pp[[
-  {NULL, NULL}
+
+static const luaL_Reg raylua_functions[] = {]]
+for _, funcName in ipairs( implementedFunctionNames ) do
+	pp( '  {"${funcName}", raylua_${funcName}},', {funcName = funcName} )
+end
+  pp[[{NULL, NULL}
 };
 
 LUAMOD_API int luaopen_raylib (lua_State *L) {]]

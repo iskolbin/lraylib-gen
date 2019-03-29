@@ -26,6 +26,8 @@ local list = {
 	'SetShaderValue',
 	'SetShaderValueV',
 
+	'CloseWindow', -- implemented by hand
+
 	-- Redundant functions
 	'DrawPixelV', 'DrawLineV', 'DrawCircleV', 'DrawCubeWiresV',
 	'DrawCubeV', 'DrawRectangleV', 'DrawRectangleRec',
