@@ -38,7 +38,8 @@ return function( fileName )
 					end
 				end
 				nFuncs = nFuncs + 1
-				funcCode[#funcCode+1] = ( '\n// %s\nstatic int raylua_%s(lua_State *L)\n{' ):format( comment, funcName )
+				-- (void)L added to silence unused warnings
+				funcCode[#funcCode+1] = ( '\n// %s\nstatic int raylua_%s(lua_State *L)\n{\n  (void)L;' ):format( comment, funcName )
 				local i, unimplementedArgConvert, unimplemented = 0, false, false
 				for _, arg in ipairs( funcArgs ) do
 					i = i + 1
