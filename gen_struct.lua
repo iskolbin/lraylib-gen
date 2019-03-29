@@ -40,7 +40,7 @@ static int raylua_${structType}_get_${name}(lua_State *L)
  	end
 
 	pp([[
-static int raylua_${structType}_metatable_gc(lua_State *L)
+static int raylua_${structType}_metatable__gc(lua_State *L)
 {
   Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
   if (!obj->released)
@@ -52,7 +52,7 @@ static int raylua_${structType}_metatable_gc(lua_State *L)
 }
 
 static const luaL_Reg raylua_${structType}_metatable[] = {
-  {"__gc", raylua_${structType}_metatable_gc},]], {
+  {"__gc", raylua_${structType}_metatable__gc},]], {
 		structType = structType,
 		finalizer = finalizer( structType, 'obj->content' ),
 	})
