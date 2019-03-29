@@ -8,7 +8,7 @@ for name in pairs( UNIMPLEMETED_ARGS ) do
 	print( '//', name )
 end
 if next( UNIMPLEMENTED_RETURNS ) then
-	print( '// unimplemented return conversions: ${nUnimplementedReturns} functions', {nUnimplementedReturns = nUnimplementedReturns} )
+	pp( '// unimplemented return conversions: ${nUnimplementedReturns} functions', {nUnimplementedReturns = nUnimplementedReturns} )
 end
 for name in pairs( UNIMPLEMENTED_RETURNS ) do
 	print( '//', name )
