@@ -114,7 +114,6 @@ return {
 			return pushnumbers( 'hit', 'distance', 'position.x', 'position.y', 'position.z', 'normal.x', 'normal.y', 'normal.z' )
 		elseif isResource( T ) then
 			return 'raylua_' .. T .. '_wrap(L, &result)' 
-			--return 'lua_pushinteger(L, raylua_Assoc' .. T .. 'Handler(L, &result))'
 		else
 			UNIMPLEMENTED_RETURNS[T] = true
 			return 'UNIMPLEMENTED_FOR_' .. T .. '(L, result)', 1, true

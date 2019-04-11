@@ -1,25 +1,29 @@
 local pp = require('pp')
 
 return function( fileName )
-	local prevValue
+	local isReadEnum = false
 	for line in io.lines( fileName ) do
-		local name, value = line:match( '%s*([%u%d_]+)%s*=%s*(%d+)' )
-		if name and value then
-			prevValue = tonumber(value)
-			pp( '  lua_pushnumber(L, ${value}); lua_setfield(L, -2, "${name}");', {value = tonumber(value), name = name} )
-		elseif prevValue and not line:match(';') then
-			name = line:match( '([%u%d_]+)' )
-			if name then
-				prevValue = prevValue + 1
-				pp( '  lua_pushnumber(L, ${prevValue}); lua_setfield(L, -2, "${name}");', {prevValue = prevValue, name = name} )
+		if not isReadEnum and line:match( '^typedef enum {$' ) then
+			isReadEnum = true
+		elseif isReadEnum then
+			if line:match('}') then
+				isReadEnum = false
 			else
-				prevValue = nil
+				if not line:match('%s*//') then
+					local name = line:match( '%s*([%u%dx_]+)' )
+					if name then
+						pp( '  lua_pushnumber(L, ${name}); lua_setfield(L, -2, "${name}");', {name = name} )
+					end
+				end
+			end
+		else
+			local name = line:match( '#define%s+([%u%d_x]+)%s+CLITERAL' )
+			if name then
+				pp( '  lua_pushinteger(L, (${name}.r<<24) + (${name}.g<<16) + (${name}.b<<8) + ${name}.a); lua_setfield(L, -2, "${name}");', {name = name} )
 			end
 		end
-		local colorName, r, g, b, a = line:match( '#define%s+([%u_]+)%s+CLITERAL%{ (%d+), (%d+), (%d+), (%d+) }' )
-		if colorName then
-			local rgba = math.floor( tonumber(r) * 2^24 + tonumber(g) * 2^16 + tonumber(b) * 2^8 + tonumber(a))
-			pp( '  lua_pushinteger(L, ${rgba}); lua_setfield(L, -2, "${colorName}");', {rgba = rgba, colorName = colorName} )
-		end
+	end
+	for _, name in ipairs{'MAX_TOUCH_POINTS', 'MAX_SHADER_LOCATIONS', 'MAX_MATERIAL_MAPS'} do
+		pp('  lua_pushinteger(L, ${name}); lua_setfield(L, -2, "${name}");', {name = name})
 	end
 end
