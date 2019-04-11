@@ -1,4 +1,4 @@
-local list = {
+local resourcesList = {
 	'Image',
 	'Texture2D',
 	'RenderTexture2D',
@@ -14,11 +14,27 @@ local list = {
 	--'TextureCubemap',
 }
 
+local resourcePointersList = {
+	'Image *',
+	'Texture2D *',
+	'Model *',
+	'Material *',
+	'Wave *',
+	'Mesh *',
+	'ModelAnimation *',
+}
+
 return {
-	list = list,
+	resourcesList = resourcesList,
+	resourcePointersList = resourcePointersList,
 
 	isResource = function( typeName )
-		for i = 1, #list do if typeName == list[i] then return true end end
+		for _, v in pairs( resourcesList ) do if typeName == v then return true end end
 		return false
-	end
+	end,
+
+	isResourcePointer = function( typeName )
+		for _, v in pairs( resourcePointersList ) do if typeName == v then return true end end
+		return false
+	end,
 }

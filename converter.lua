@@ -1,4 +1,4 @@
-local isResource = require( 'resources' ).isResource
+local isResource, isResourcePointer = require( 'resources' ).isResource, require( 'resources' ).isResourcePointer
 local aliases = require( 'aliases' )
 
 local UNIMPLEMETED_ARGS = {}
@@ -79,6 +79,9 @@ return {
 			return 'GetColor(luaL_checkinteger(L, ' .. index .. '))'
 		elseif isResource( T ) then
 			return '((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "raylua_' .. T .. '"))->content'
+		elseif isResourcePointer( T ) then
+			T = T:gsub('%s%*','')
+			return '&((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "raylua_' .. T .. '"))->content'
 		else
 			UNIMPLEMETED_ARGS[T] = true
 			return 'UNIMPLEMENTED_FOR_' .. T, index, true
@@ -114,6 +117,8 @@ return {
 			return pushnumbers( 'hit', 'distance', 'position.x', 'position.y', 'position.z', 'normal.x', 'normal.y', 'normal.z' )
 		elseif isResource( T ) then
 			return 'raylua_' .. T .. '_wrap(L, &result)' 
+		elseif isResourcePointer( T ) then
+			return 'raylua_' .. T .. '_wrap(L, result)'
 		else
 			UNIMPLEMENTED_RETURNS[T] = true
 			return 'UNIMPLEMENTED_FOR_' .. T .. '(L, result)', 1, true

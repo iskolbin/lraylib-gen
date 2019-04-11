@@ -1,5 +1,5 @@
 local pp = require( 'pp' )
-local resourcesList = require( 'resources' ).list
+local resourcesList = require( 'resources' ).resourcesList
 
 pp[[
 #define ISL_SLEEP_IMPLEMENTATION

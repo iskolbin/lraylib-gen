@@ -2,7 +2,6 @@ local pp = require('pp')
 local parseType = require( 'converter' ).parseType
 local luaToC = require( 'converter' ).luaToC
 local cToLua = require( 'converter' ).cToLua
-local isResource = require( 'resources' ).isResource
 local isBlacklisted = require( 'blacklisted' ).isBlacklisted
 
 return function( fileName )

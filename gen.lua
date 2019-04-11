@@ -21,10 +21,11 @@ end
 };
 
 LUAMOD_API int luaopen_raylib (lua_State *L) {]]
-for _, struct in ipairs( require( 'resources' ).list ) do
+for _, struct in ipairs( require( 'resources' ).resourcesList ) do
   pp('  raylua_' .. struct .. '_metatable_register(L);' )
 end
-  pp[[luaL_newlib(L, raylua_functions);]]
+  pp[[
+  luaL_newlib(L, raylua_functions);]]
 	require( 'gen_constants' )( fileName )
 pp([[
   return 1;

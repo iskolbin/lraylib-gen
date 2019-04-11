@@ -1,6 +1,5 @@
 local pp = require( 'pp' )
-local isResource = require( 'resources' ).isResource
-local resourcesList = require( 'resources' ).list
+local resourcesList = require( 'resources' ).resourcesList
 local cToLua = require( 'converter' ).cToLua
 local finalizer = require( 'converter' ).finalizer
 
