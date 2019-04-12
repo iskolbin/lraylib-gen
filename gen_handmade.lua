@@ -69,6 +69,40 @@ static int raylua_LoadModelAnimations(lua_State *L)
   for (int i = 0; i < count; i++) raylua_ModelAnimation_wrap(L, animations+i);
 	return count;
 }
+
+static int raylua_DrawPolyEx(lua_State *L)
+{
+  int len = raylua_tablelen(L, 1) / 2;
+  Color color = GetColor(luaL_checkinteger(L, 2));
+	Vector2 *points = malloc( len * sizeof * points );
+	for (int i = 0; i < len; i += 2)
+  {
+    lua_rawgeti(L, 1, i);
+		points[i].x = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 2, i);
+		points[i].y = luaL_checknumber(L, -1);
+  }
+  DrawPolyEx(points, len, color);
+	free(points);
+	return 0;
+}
+
+static int raylua_DrawPolyExLines(lua_State *L)
+{
+  int len = raylua_tablelen(L, 1) / 2;
+  Color color = GetColor(luaL_checkinteger(L, 2));
+	Vector2 *points = malloc( len * sizeof * points );
+	for (int i = 0; i < len; i += 2)
+  {
+    lua_rawgeti(L, 1, i);
+		points[i].x = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 2, i);
+		points[i].y = luaL_checknumber(L, -1);
+  }
+  DrawPolyExLines(points, len, color);
+	free(points);
+	return 0;
+}
 ]]
 
 return {
@@ -78,4 +112,6 @@ return {
 	'GetDirectoryFiles',
 	'CheckCollisionRaySphereEx',
 	'LoadModelAnimations',
+	'DrawPolyEx',
+	'DrawPolyExLines',
 }

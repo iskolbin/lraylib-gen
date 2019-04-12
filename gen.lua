@@ -16,13 +16,15 @@ pp[[
 #include <lualib.h>
 #include "raylib.h"
 
-static void raylua_register(lua_State *L, const luaL_Reg *l) {
-#if LUA_VERSION_NUM <= 501
-	luaL_register(L, NULL, l);
+#if(LUA_VERSION_NUM <= 501)
+#define raylua_tablelen lua_objlen
+#define raylua_register(L,l) luaL_register((L), NULL, (l))
 #else
-	luaL_setfuncs(L, l, 0);
+#define raylua_tablelen lua_rawlen
+#define raylua_register(L,l) luaL_setfuncs((L), (l), 0)
 #endif
-}]]
+]]
+
 
 require( 'gen_struct' )( fileName )
 

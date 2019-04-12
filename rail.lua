@@ -1,10 +1,7 @@
 local raylib = require('raylua')
 
-setmetatable( raylib, {__index = function(...)
-	print(...)
-	local self, k = ...
-	print( rawget(self,k))
-	error("") end, __newindex = error} )
+local oldraylibmt = getmetatable( raylib )
+setmetatable( raylib, {__index = error, __newindex = error} )
 
 local rail = {
 	conf = {
@@ -22,20 +19,46 @@ local rail = {
 		},
 	},
 
+	hsv = raylib.ColorToHSV,
+	fade = raylib.Fade,
 	time = raylib.GetTime,
+	normalize = raylib.ColorNormalize,
 	frametime = raylib.GetFrameTime,
 	getfps = raylib.GetFPS,
+	setfps = raylib.SetTargetFPS,
+	openurl = raylib.OpenURL,
+
+	clipboard = {
+		set = raylib.SetClipboardText,
+		get = raylib.GetClipboardText,
+	},
 
 	window = {
+		isready = raylib.IsWindowReady,
+		isminimized = raylib.IsWindowMinimized,
+		isresized = raylib.IsWindowResized,
+		isvisible = function() return not raylib.IsWindowHidden() end,
 		getwidth = raylib.GetScreenWidth,
 		getheight = raylib.GetScreenHeight,
 		getsize = function() return raylib.GetScreenWidth(), raylib.GetScreenHeight() end,
 		settitle = raylib.SetWindowTitle,
+		seticon = raylib.SetWindowIcon,
 		setpos = raylib.SetWindowPosition,
-		setminsize = raylib.SetWindowMinSize,
 		setmonitor = raylib.SetWindowMonitor,
-		isminimized = raylib.IsWindowMinimized,
-		isready = raylib.IsWindowReady,
+		setvisible = function( visible ) if visible then raylib.UnhideWindow() else raylib.HideWindow() end end,
+		setminsize = raylib.SetWindowMinSize,
+		setsize = raylib.SetWindowSize,
+	},
+
+	monitor = {
+		getcount = raylib.GetMonitorCount,
+		getname = raylib.GetMonitorName,
+		getwidth = raylib.GetMonitorWidth,
+		getheight = raylib.GetMonitorHeight,
+		getsize = function() return raylib.GetMonitorWidth(), raylib.GetMonitorHeight() end,
+		getphysicalwidth = raylib.GetMonitorPhysicalWidth,
+		getphysicalheight = raylib.GetMonitorPhysicalHeight,
+		getphysicalsize = function() return raylib.GetMonitorPhysicalWidth(), raylib.GetMonitorPhysicalHeight() end,
 	},
 
 	ctx = {
@@ -50,17 +73,24 @@ local rail = {
 			end
 		end,
 		line = raylib.DrawLine,
-		beizer = raylib.DrawLineBezier,
+		bezier = raylib.DrawLineBezier,
 		strokerect = raylib.DrawRectangleLines,
+		strokerectrounded = raylib.DrawRectangleRoundedLines,
+		strokecircle = raylib.DrawCircleLines,
+		stroketriangle = raylib.DrawTriangleLines,
+		strokepoly = raylib.DrawPolyExLines,
 		fillrect = raylib.DrawRectangle,
+		fillrectrounded = raylib.DrawRectangleRounded,
+		fillcircle = raylib.DrawCircle,
+		filltriangle = raylib.DrawTriangle,
+		fillpoly = raylib.DrawPolyEx,
+		fillregularpoly = raylib.DrawPoly,
 		gradrect = raylib.DrawRectangleGradientEx,
 		hgradrect = raylib.DrawRectangleGradientH,
 		vgradrect = raylib.DrawRectangleGradientV,
-		strokecircle = raylib.DrawCircleLines,
-		fillcircle = raylib.DrawCircle,
 		gradcircle = raylib.DrawCircleGradient,
 
-		draw = raylib.DrawTexture,
+		drawtexture = raylib.DrawTexture,
 	},
 
 	gfx = {
@@ -80,6 +110,34 @@ local rail = {
 		genwhitenoise = raylib.GenImageWhiteNoise,
 		genperlinnoise = raylib.GenImagePerlinNoise,
 		gencelluar = raylib.GenImageCellular,
+	},
+
+	audio = {
+		setmastervolume = raylib.SetMasterVolume,
+		isready = raylib.IsAudioDeviceReady,
+		loadsound = raylib.LoadSound,
+		loadmusic = raylib.LoadMusicStream,
+	},
+
+	sound = {
+		setvolume = raylib.SetSoundVolume,
+		setpitch = raylib.SetSoundPitch,
+		pause = raylib.PauseSound,
+		stop = raylib.StopSound,
+		play = raylib.PlaySound,
+		isplaying = raylib.IsSoundPlaying,
+	},
+
+	music = {
+		setvolume = raylib.SetMusicVolume,
+		setpitch = raylib.SetMusicPitch,
+		pause = raylib.PauseMusicStream,
+		stop = raylib.StopMusicStream,
+		play = raylib.PlayMusicStream,
+		isplaying = raylib.IsMusicPlaying,
+		setloopcount = raylib.SetMusicLoopCount,
+		getlength = raylib.GetMusicTimeLength,
+		getplayed = raylib.GetMusicTimePlayed,
 	},
 
 	state = {
@@ -170,6 +228,7 @@ local rail = {
 		isdown = raylib.IsKeyDown,
 		isup = raylib.IsKeyUp,
 		getpressed = raylib.GetKeyPressed,
+		setexit = raylib.SetExitKey,
 	},
 
 	gamepad = {
@@ -192,14 +251,22 @@ local rail = {
 	},
 
 	fs = {
-		getextension = raylib.GetExtension,
+		isexist = raylib.FileExists,
+		getext = raylib.GetExtension,
 		getfilename = raylib.GetFileName,
+		getfilenamenoext = raylib.GetFileNameWithoutExt,
 		getdirectorypath = raylib.GetDirectoryPath,
 		getworkingdirectory = raylib.GetWorkingDirectory,
 		changedirectory = raylib.ChangeDirectory,
 		isfiledropped = raylib.IsFileDropped,
 		getdroppedfiles = raylib.GetDroppedFiles,
 		getdirectoryfiles = raylib.GetDirectoryFiles,
+		getfilemodtime = raylib.GetFileModTime,
+	},
+
+	storage = {
+		set = raylib.StorageSaveValue,
+		get = raylib.StorageLoadValue,
 	}
 }
 
@@ -218,6 +285,7 @@ end
 function rail.run()
 	local conf = rail.conf.window
 	raylib.InitWindow( conf.width, conf.height, conf.title )
+	raylib.InitAudioDevice()
 	updateImageMetatable()
 	rail.load()
 	if conf.icon then
@@ -248,6 +316,7 @@ function rail.run()
 			raylib.Sleep( math.floor( 1000000 * sleep_t ))
 		end
 	end
+	raylib.CloseAudioDevice()
 	raylib.CloseWindow()
 end
 
@@ -261,5 +330,25 @@ function rail.setfullscreen( fullscreen )
 		raylib.ToggleFullscreen()
 	end
 end
+
+function rail.ctx.mode2d( f, ... )
+	raylib.BeginMode2D( ... )
+	f( rail.ctx )
+	raylib.EndMode2D()
+end
+
+function rail.ctx.mode3d( f, ... )
+	raylib.BeginMode3D( ... )
+	f( rail.ctx )
+	raylib.EndMode3D()
+end
+
+function rail.ctx.modetexture( f, ... )
+	raylib.BeginTextureMode( ... )
+	f( rail.ctx )
+	raylib.EndTextureMode()
+end
+
+setmetatable( raylib, oldraylibmt )
 
 return rail
