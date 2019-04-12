@@ -19,7 +19,7 @@ return function( fileName )
 		else
 			local name = line:match( '#define%s+([%u%d_x]+)%s+CLITERAL' )
 			if name then
-				pp( '  lua_pushinteger(L, (${name}.r<<24) + (${name}.g<<16) + (${name}.b<<8) + ${name}.a); lua_setfield(L, -2, "${name}");', {name = name} )
+				pp( '  lua_pushinteger(L, ColorToInt(${name})); lua_setfield(L, -2, "${name}");', {name = name} )
 			end
 		end
 	end

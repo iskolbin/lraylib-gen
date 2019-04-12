@@ -1,6 +1,4 @@
 local list = {
-	'GetDirectoryFiles',
-	'GetDroppedFiles',
 	'UpdateCamera',
 	'UpdateVrTracking',
 	'GetWindowHandle',
@@ -26,7 +24,9 @@ local list = {
 	'SetShaderValue',
 	'SetShaderValueV',
 
-	'CloseWindow', -- implemented by hand
+	-- Implemented by hand/used internally
+	'CloseWindow', 'GetDroppedFiles', 'ClearDroppedFiles', 'GetDirectoryFiles',
+	'ClearDroppedFiles',
 
 	-- Redundant functions
 	'DrawPixelV', 'DrawLineV', 'DrawCircleV', 'DrawCubeWiresV',

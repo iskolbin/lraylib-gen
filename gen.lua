@@ -17,7 +17,8 @@ static const luaL_Reg raylua_functions[] = {]]
 for _, funcName in ipairs( implementedFunctionNames ) do
 	pp( '  {"${funcName}", raylua_${funcName}},', {funcName = funcName} )
 end
-  pp[[{NULL, NULL}
+  pp[[
+  {NULL, NULL}
 };
 
 LUAMOD_API int luaopen_raylua (lua_State *L) {]]

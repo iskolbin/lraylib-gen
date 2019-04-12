@@ -1,4 +1,10 @@
-local raylib = require('raylib')
+local raylib = require('raylua')
+
+setmetatable( raylib, {__index = function(...)
+	print(...)
+	local self, k = ...
+	print( rawget(self,k))
+	error("") end, __newindex = error} )
 
 local rail = {
 	conf = {
@@ -52,7 +58,7 @@ local rail = {
 		vgradrect = raylib.DrawRectangleGradientV,
 		strokecircle = raylib.DrawCircleLines,
 		fillcircle = raylib.DrawCircle,
-		gradcircle = raylib.CircleGradient,
+		gradcircle = raylib.DrawCircleGradient,
 
 		draw = raylib.DrawTexture,
 	},
@@ -85,6 +91,49 @@ local rail = {
 	update = function() end,
 
 	draw = function() end,
+
+	image = {
+		copy = raylib.ImageCopy,
+		textimage = function(...)
+			local n = select('#', ...)
+			if n == 3 then
+				raylib.ImageText(...)
+			elseif n == 5 then
+				raylib.ImageTextEx( ... )
+			end
+		end,
+		topow2 = raylib.ImageToPOT,
+		format = raylib.ImageFormat,
+		alphamask = raylib.ImageAlphaMask,
+		alhpaclear = raylib.ImageAlphaClear,
+		alphacrop = raylib.ImageAlphaCrop,
+		alphapremultiply = raylib.ImageAlphaPremultiply,
+		crop = raylib.ImageCrop,
+		resize = raylib.ImageResize,
+		resizenn = raylib.ImageResizeNN,
+		resizecanvas = raylib.ImageResizeCanvas,
+		mipmaps = raylib.ImageMipmaps,
+		dither = raylib.ImageDither,
+		rect = raylib.ImageDrawRectangle,
+		text = function(...)
+			local n = select('#', ...)
+			if n == 5 then
+				raylib.ImageDrawText(...)
+			elseif n == 7 then
+				raylib.ImageDrawTextEx( ... )
+			end
+		end,
+		vfilp = raylib.ImageFlipVertical,
+		hfilp = raylib.ImageFlipHorizontal,
+		rotcw = raylib.ImageRotateCW,
+		rotccw = raylib.ImageRotateCCW,
+		tint = raylib.ImageColorTint,
+		invert = raylib.ImageColorInvert,
+		grayscale = raylib.ImageColorGrayscale,
+		contrast = raylib.ImageColorContrast,
+		brightness = raylib.ImageColorBrightness,
+		replace = raylib.ImageColorReplace,
+	},
 
 	mouse = {
 		setvisible = function( visible )
@@ -142,48 +191,16 @@ local rail = {
 		getcount = raylib.GetTouchPointsCount,
 	},
 
-	image = {
-		copy = raylib.ImageCopy,
-		textimage = function(...)
-			local n = select('#', ...)
-			if n == 3 then
-				raylib.ImageText(...)
-			elseif n == 5 then
-				raylib.ImageTextEx( ... )
-			end
-		end,
-		topow2 = raylib.ImageToPOT,
-		format = raylib.ImageFormat,
-		alphamask = raylib.ImageAlphaMask,
-		alhpaclear = raylib.ImageAlphaClear,
-		alphacrop = raylib.ImageAlphaCrop,
-		alphapremultiply = raylib.ImageAlphaPremultiply,
-		crop = raylib.ImageCrop,
-		resize = raylib.ImageResize,
-		resizenn = raylib.ImageResizeNN,
-		resizecanvas = raylib.ImageResizeCanvas,
-		mipmaps = raylib.ImageMipmaps,
-		dither = raylib.ImageDither,
-		rect = raylib.ImageDrawRectangle,
-		text = function(...)
-			local n = select('#', ...)
-			if n == 5 then
-				raylib.ImageDrawText(...)
-			elseif n == 7 then
-				raylib.ImageDrawTextEx( ... )
-			end
-		end,
-		vfilp = raylib.ImageFlipVertical,
-		hfilp = raylib.ImageFlipHorizontal,
-		rotcw = raylib.ImageRotateCW,
-		rotccw = raylib.ImageRotateCCW,
-		tint = raylib.ImageColorTint,
-		invert = raylib.ImageColorInvert,
-		grayscale = raylib.ImageColorGrayscale,
-		contrast = raylib.ImageColorContrast,
-		brightness = raylib.ImageColorBrightness,
-		replace = raylib.ImageColorReplace,
-	},
+	fs = {
+		getextension = raylib.GetExtension,
+		getfilename = raylib.GetFileName,
+		getdirectorypath = raylib.GetDirectoryPath,
+		getworkingdirectory = raylib.GetWorkingDirectory,
+		changedirectory = raylib.ChangeDirectory,
+		isfiledropped = raylib.IsFileDropped,
+		getdroppedfiles = raylib.GetDroppedFiles,
+		getdirectoryfiles = raylib.GetDirectoryFiles,
+	}
 }
 
 for k, v in pairs( raylib ) do

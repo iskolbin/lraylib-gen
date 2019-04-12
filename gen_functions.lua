@@ -55,7 +55,7 @@ return function( fileName )
 					result, resultCount = '', 0
 				end
 
-				funcCode[#funcCode+1] = ( '  %s %s(%s);' ):format( result, funcName, table.concat( funcArgsNames, ', ' ))
+				funcCode[#funcCode+1] = ( '  %s%s(%s);' ):format( result, funcName, table.concat( funcArgsNames, ', ' ))
 
 				if unimplementedArgConvert then
 					nUnimplenentedArgs = nUnimplenentedArgs + 1
