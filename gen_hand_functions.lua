@@ -45,6 +45,22 @@ static int raylua_GetDroppedFiles(lua_State *L)
   ClearDroppedFiles();
   return count;
 }
+
+static int raylua_CheckCollisionRaySphereEx(lua_State *L)
+{
+  Ray ray = (Ray) {{luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3)},{luaL_checknumber(L, 4), luaL_checknumber(L, 5), luaL_checknumber(L, 6)}};
+  Vector3 spherePosition = (Vector3) {luaL_checknumber(L, 7), luaL_checknumber(L, 8), luaL_checknumber(L, 9)};
+  float sphereRadius = (float) luaL_checknumber(L, 10);
+  Vector3 collisionPoint;
+	if (CheckCollisionRaySphereEx(ray, spherePosition, sphereRadius, &collisionPoint))
+  {
+    lua_pushnumber(L, collisionPoint.x);
+    lua_pushnumber(L, collisionPoint.y);
+    lua_pushnumber(L, collisionPoint.z);
+    return 3;
+	}
+  return 0;
+}
 ]]
 
 return {
@@ -52,4 +68,5 @@ return {
 	'CloseWindow',
 	'GetDroppedFiles',
 	'GetDirectoryFiles',
+	'CheckCollisionRaySphereEx',
 }
