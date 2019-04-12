@@ -116,7 +116,7 @@ return {
 		elseif T == 'RayHitInfo' then
 			return pushnumbers( 'hit', 'distance', 'position.x', 'position.y', 'position.z', 'normal.x', 'normal.y', 'normal.z' )
 		elseif isResource( T ) then
-			return 'raylua_' .. T .. '_wrap(L, &result)' 
+			return 'raylua_' .. T .. '_wrap(L, &result)'
 		elseif isResourcePointer( T ) then
 			return 'raylua_' .. T .. '_wrap(L, result)'
 		else

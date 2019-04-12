@@ -229,16 +229,16 @@ function rail.run()
 	if conf.minwidth and conf.minheight then
 		raylib.SetWindowMinSize( conf.minwidth, conf.minheight )
 	end
-	
+
 	raylib.SetTargetFPS( conf.fps )
 	local t0 = raylib.GetTime()
 	local t1 = t0
 	local dt = 0
 	local dt_needed = 1/conf.fps
 	while not raylib.WindowShouldClose() do
-		rail.update(dt, t)
+		rail.update(dt, t0)
 		raylib.BeginDrawing()
-		rail.draw(rail.ctx, dt, t)
+		rail.draw(rail.ctx, dt, t0)
 		raylib.EndDrawing()
 		t0 = t1
 		t1 = raylib.GetTime()
@@ -256,7 +256,7 @@ function rail.isfullscreen()
 end
 
 function rail.setfullscreen( fullscreen )
-	if rail.conf.window.fullscreen and (fullscreen == true or fullscreen == false) and fullscreen ~= rail.state.fullscreen then
+	if rail.conf.window.fullscreen and (type(fullscreen) == 'boolean') and fullscreen ~= rail.state.fullscreen then
 		rail.state.fullscreen = fullscreen
 		raylib.ToggleFullscreen()
 	end

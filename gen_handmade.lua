@@ -64,7 +64,7 @@ static int raylua_CheckCollisionRaySphereEx(lua_State *L)
 
 static int raylua_LoadModelAnimations(lua_State *L)
 {
-  int count = 0; 
+  int count = 0;
   ModelAnimation *animations = LoadModelAnimations(luaL_checkstring(L, 1), &count);
   for (int i = 0; i < count; i++) raylua_ModelAnimation_wrap(L, animations+i);
 	return count;
