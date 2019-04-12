@@ -26,7 +26,7 @@ local list = {
 
 	-- Implemented by hand/used internally
 	'CloseWindow', 'GetDroppedFiles', 'ClearDroppedFiles', 'GetDirectoryFiles',
-	'ClearDroppedFiles', 'CheckCollisionRaySphereEx',
+	'ClearDroppedFiles', 'CheckCollisionRaySphereEx', 'LoadModelAnimations',
 
 	-- Redundant functions
 	'DrawPixelV', 'DrawLineV', 'DrawCircleV', 'DrawCubeWiresV',

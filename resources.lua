@@ -4,13 +4,14 @@ local resourcesList = {
 	'RenderTexture2D',
 	'Shader',
 	'Font',
-	--'AudioStream',
+	'AudioStream',
 	'Sound',
 	'Music',
 	'Mesh',
 	'Model',
 	'Material',
 	'Wave',
+	'ModelAnimation',
 }
 
 local resourcePointersList = {

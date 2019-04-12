@@ -12,27 +12,27 @@ typedef struct Wrapped${structType} {
 ]], {structType = structType, structType = structType})
 
 	for i, type_name in ipairs(structFields) do
-		local resultType, name = type_name[1], type_name[2]
-		local converter, returnCount = cToLua( resultType )
+		local fieldType, fieldName = type_name[1], type_name[2]
+		local converter, returnCount = cToLua( fieldType )
 		returnCount = returnCount or 1
 
-		if resultType == 'Mesh' then
-			resultType = 'Mesh*'
+		if fieldType == 'Mesh' then
+			fieldType = 'Mesh*'
 		end
-		
+
 		pp([[
-static int raylua_${structType}_get_${name}(lua_State *L)
+static int raylua_${structType}_get_${fieldName}(lua_State *L)
 {
-  Wrapped${contType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
+  Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
   if (obj->unloaded) return luaL_error(L, "Resource[${structType}] was unloaded");
-  ${resultType} result = obj->content.${name};
+  ${fieldType} result = obj->content.${fieldName};
   ${converter};
   return ${returnCount};
 }
 ]], {
 		structType = structType,
-		name = name,
-		resultType = resultType,
+		fieldName = fieldName,
+		fieldType = fieldType,
 		returnCount = returnCount,
 		converter = converter
 	})
@@ -44,7 +44,7 @@ static int raylua_${structType}_unload(lua_State *L)
   Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
   if (!obj->unloaded)
   {
-    ${finalizer};
+    ${finalizer}
 		obj->unloaded = 1;
   }
   return 0;
@@ -59,7 +59,7 @@ static const luaL_Reg raylua_${structType}[] = {
 
 	for i, type_name in ipairs( structFields ) do
 		pp([[
-  {"${name}", raylua_${structType}_get_${name}},]], {
+  {"get${name}", raylua_${structType}_get_${name}},]], {
 		name = type_name[2],
 		structType = structType,
 	})
@@ -98,19 +98,21 @@ local function parseConstants( strings )
 end
 
 local function parseFields( T, strings )
+	local iscomment = false
 	local fields = {}
+	local state = nil
 	for _, s in ipairs( strings ) do
 		if s:match('%s+%/%*') then
-			scomment = true
+			iscomment = true
 		else
 			if s:match('%s+%*%/') then
 				iscomment = nil
 			elseif state == nil then
-				if s:match('typedef struct ' .. T .. '{') then
+				if s:match('typedef struct ' .. T .. '%s*{') then
 					state = 'readstruct'
 				end
 			elseif state == 'readstruct' then
-				if s:match('%s*}%s*' .. t ..'%s*;') then
+				if s:match('%s*}%s*' .. T ..'%s*;') then
 					state = nil
 					return fields
 				else

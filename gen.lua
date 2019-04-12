@@ -7,7 +7,7 @@ require( 'gen_intro' )
 require( 'gen_struct' )( fileName )
 
 local nFuncs, nUnimplemented, nUnimplenentedArgs, nUnimplementedReturns, implementedFunctionNames = require( 'gen_functions' )( fileName )
-for _, funcName in ipairs( require( 'gen_hand_functions' )) do
+for _, funcName in ipairs( require( 'gen_handmade' )) do
 	implementedFunctionNames[#implementedFunctionNames+1] = funcName
 end
 
