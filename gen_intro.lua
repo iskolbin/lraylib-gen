@@ -8,12 +8,12 @@ pp[[
 #define LUA_LIB
 #include <stdlib.h>
 #include <string.h>
-#include "raylib.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include "raylib.h"
 
-static void raylua_register_metatable(lua_State *L, const luaL_Reg *l) {
+static void raylua_register(lua_State *L, const luaL_Reg *l) {
 #if LUA_VERSION_NUM <= 501
 	luaL_register(L, NULL, l);
 #else

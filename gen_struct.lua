@@ -7,7 +7,7 @@ local function printStruct( structType, structFields )
 	pp([[
 typedef struct Wrapped${structType} {
   ${structType} content;
-  int released;
+  int unloaded;
 } Wrapped${structType};
 ]], {structType = structType, structType = structType})
 
@@ -24,7 +24,7 @@ typedef struct Wrapped${structType} {
 static int raylua_${structType}_get_${name}(lua_State *L)
 {
   Wrapped${contType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
-  if (obj->released) return luaL_error(L, "Resource[${structType}] was released");
+  if (obj->unloaded) return luaL_error(L, "Resource[${structType}] was unloaded");
   ${resultType} result = obj->content.${name};
   ${converter};
   return ${returnCount};
@@ -39,19 +39,20 @@ static int raylua_${structType}_get_${name}(lua_State *L)
  	end
 
 	pp([[
-static int raylua_${structType}_metatable__gc(lua_State *L)
+static int raylua_${structType}_unload(lua_State *L)
 {
   Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
-  if (!obj->released)
+  if (!obj->unloaded)
   {
     ${finalizer};
-		obj->released = 1;
+		obj->unloaded = 1;
   }
   return 0;
 }
 
-static const luaL_Reg raylua_${structType}_metatable[] = {
-  {"__gc", raylua_${structType}_metatable__gc},]], {
+static const luaL_Reg raylua_${structType}[] = {
+  {"__gc", raylua_${structType}_unload},
+  {"unload", raylua_${structType}_unload},]], {
 		structType = structType,
 		finalizer = finalizer( structType, 'obj->content' ),
 	})
@@ -69,19 +70,19 @@ static const luaL_Reg raylua_${structType}_metatable[] = {
 ]],{})
 
 	pp([[
-static void raylua_${structType}_metatable_register(lua_State *L)
+static void raylua_${structType}_register(lua_State *L)
 {
   luaL_newmetatable(L, "raylua_${structType}");
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
-	raylua_register_metatable(L, raylua_${structType}_metatable);
+	raylua_register(L, raylua_${structType});
 }
 
 static void raylua_${structType}_wrap(lua_State *L, ${structType} *content)
 {
   Wrapped${structType} *ud = lua_newuserdata(L, sizeof *ud);
   ud->content = *content;
-  ud->released = 0;
+  ud->unloaded = 0;
   luaL_setmetatable(L, "raylua_${structType}");
 }
 ]], {structType = structType})

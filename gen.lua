@@ -20,9 +20,9 @@ end
   pp[[{NULL, NULL}
 };
 
-LUAMOD_API int luaopen_raylib (lua_State *L) {]]
+LUAMOD_API int luaopen_raylua (lua_State *L) {]]
 for _, struct in ipairs( require( 'resources' ).resourcesList ) do
-  pp('  raylua_' .. struct .. '_metatable_register(L);' )
+  pp('  raylua_' .. struct .. '_register(L);' )
 end
   pp[[
   luaL_newlib(L, raylua_functions);]]
