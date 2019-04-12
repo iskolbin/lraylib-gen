@@ -11,7 +11,6 @@ local resourcesList = {
 	'Model',
 	'Material',
 	'Wave',
-	--'TextureCubemap',
 }
 
 local resourcePointersList = {

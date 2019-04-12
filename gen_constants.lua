@@ -12,7 +12,7 @@ return function( fileName )
 				if not line:match('%s*//') then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						pp( '  lua_pushnumber(L, ${name}); lua_setfield(L, -2, "${name}");', {name = name} )
+						pp( '  lua_pushinteger(L, ${name}); lua_setfield(L, -2, "${name}");', {name = name} )
 					end
 				end
 			end

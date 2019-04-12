@@ -3,6 +3,7 @@ local parseType = require( 'converter' ).parseType
 local luaToC = require( 'converter' ).luaToC
 local cToLua = require( 'converter' ).cToLua
 local isBlacklisted = require( 'blacklisted' ).isBlacklisted
+local aliases = require( 'aliases' )
 
 return function( fileName )
 	local nFuncs, nUnimplemented, nUnimplenentedArgs, nUnimplementedReturns, implementedFunctionNames = 0, 0, 0, 0, {}
@@ -26,6 +27,7 @@ return function( fileName )
 			-- Parse function name and return type
 			local funcName, funcReturnType = parseType( bodyName )
 
+			funcReturnType = aliases[funcReturnType] or funcReturnType
 			local funcCode = {}
 			if not isBlacklisted( funcName ) then
 				-- Parse function arguments and their types
