@@ -3,3 +3,4 @@
 *.c
 *.so
 *.dll
+*.dylib

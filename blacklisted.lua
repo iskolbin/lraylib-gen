@@ -4,14 +4,8 @@ local list = {
 	'GetWindowHandle',
 	'UpdateTexture',
 
-	'SetTraceLogLevel',
-	'SetTraceLogExit',
-	'SetTraceLogCallback',
-	'TraceLog',
 
 	'GetWaveData', -- need output arrays
-	'DrawPolyEx', -- need input arrays
-	'DrawPolyExLines', -- need input arrays
 	'LoadImageEx', -- need input arrays
 	'LoadImagePro',
 	'GetImageData',
@@ -27,6 +21,8 @@ local list = {
 	-- Implemented by hand/used internally
 	'CloseWindow', 'GetDroppedFiles', 'ClearDroppedFiles', 'GetDirectoryFiles',
 	'ClearDroppedFiles', 'CheckCollisionRaySphereEx', 'LoadModelAnimations',
+	'QuaternionToAxisAngle', 'Vector3OrthoNormalize', 'DrawPolyEx',
+	'DrawPolyExLines', 'TraceLog',
 
 	-- Redundant functions
 	'DrawPixelV', 'DrawLineV', 'DrawCircleV', 'DrawCubeWiresV',

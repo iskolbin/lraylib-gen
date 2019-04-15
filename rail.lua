@@ -1,4 +1,4 @@
-local raylib = require('raylua')
+local raylib = require('raylib')
 
 local oldraylibmt = getmetatable( raylib )
 setmetatable( raylib, {__index = error, __newindex = error} )

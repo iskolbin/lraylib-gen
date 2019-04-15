@@ -11,13 +11,13 @@ init:
 	git submodule update --init --recursive
 
 gen:
-	lua gen.lua $(RAYLIB_PATH)/src/raylib.h > raylua.c
+	lua gen.lua $(RAYLIB_PATH)/src/raylib.h $(RAYLIB_PATH)/src/raymath.h > raylib.c
 
 libraylib.a:
 	cd $(RAYLIB_PATH)/src && $(MAKE) PLATFORM=PLATFORM_DESKTOP CFLAGS+=-fPIC
 
 build-osx: gen libraylib.a
-	cc -Wall -Wextra $(CFLAGS) raylua.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -llua -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -fPIC -shared -o raylua.so
+	cc -Wall -Wextra $(CFLAGS) raylib.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -llua -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -fPIC -shared -o raylib.so
 
 build-linux: gen libraylib.a
-	cc -Wall -Wextra $(CFLAGS) raylua.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -lX11 -lpthread -ldl -fPIC -shared -o raylua.so
+	cc -Wall -Wextra $(CFLAGS) raylib.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -lX11 -lpthread -ldl -fPIC -shared -o raylua.so

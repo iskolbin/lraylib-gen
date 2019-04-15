@@ -63,13 +63,17 @@ return {
 			return '(' .. T .. ') luaL_checkstring(L, ' .. index .. ')'
 		elseif T == 'Vector2' then
 			return '(' .. T .. ') {' .. checknumbers(index, 2) .. '}', index+1
-		elseif T == 'Vector3' then
+		elseif T == 'Vector3' or T == 'const Vector3' then
 			return '(' .. T .. ') {' .. checknumbers(index, 3) .. '}', index+2
+		elseif T == 'Vector4' then
+			return '(' .. T .. ') {' .. checknumbers(index, 4) .. '}', index+3
+		elseif T == 'Quaternion' then
+			return '(' .. T .. ') {' .. checknumbers(index, 4) .. '}', index+3
 		elseif T == 'Rectangle' then
 			return '(' .. T .. ') {' .. checknumbers(index, 4) .. '}', index+3
 		elseif T == 'Camera2D' then
 			return '(' .. T .. ') {{' .. checknumbers(index, 2) .. '},{' .. checknumbers(index+2, 2) ..'},' .. checknumbers(index+4, 2) ..'}', index+5
-		elseif T == 'BoundingBox' or T == 'Ray'then
+		elseif T == 'BoundingBox' or T == 'Ray' then
 			return '(' .. T .. ') {{' .. checknumbers(index, 3) .. '},{' .. checknumbers(index+3, 3) ..'}}', index+5
 		elseif T == 'Matrix' then
 			return '(' .. T .. ') {' .. checknumbers(index, 16) .. '}', index+15
@@ -78,10 +82,10 @@ return {
 		elseif T == 'Color' then
 			return 'GetColor(luaL_checkinteger(L, ' .. index .. '))'
 		elseif isResource( T ) then
-			return '((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "raylua_' .. T .. '"))->content'
+			return '((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "lua_raylib_' .. T .. '"))->content'
 		elseif isResourcePointer( T ) then
 			T = T:gsub('%s%*','')
-			return '&((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "raylua_' .. T .. '"))->content'
+			return '&((Wrapped' .. T .. ' *) luaL_checkudata(L, ' .. index .. ', "lua_raylib_' .. T .. '"))->content'
 		else
 			UNIMPLEMETED_ARGS[T] = true
 			return 'UNIMPLEMENTED_FOR_' .. T, index, true
@@ -105,6 +109,8 @@ return {
 			return pushnumbers( 'x', 'y', 'z' )
 		elseif T == 'Vector4' then
 			return pushnumbers( 'x', 'y', 'z', 'w' )
+		elseif T == 'Quaternion' then
+			return pushnumbers( 'x', 'y', 'z', 'w' )
 		elseif T == 'Rectangle' then
 			return pushnumbers('x', 'y', 'width', 'height')
 		elseif T == 'BoundingBox' then
@@ -116,9 +122,9 @@ return {
 		elseif T == 'RayHitInfo' then
 			return pushnumbers( 'hit', 'distance', 'position.x', 'position.y', 'position.z', 'normal.x', 'normal.y', 'normal.z' )
 		elseif isResource( T ) then
-			return 'raylua_' .. T .. '_wrap(L, &result)'
+			return 'lua_raylib_' .. T .. '_wrap(L, &result)'
 		elseif isResourcePointer( T ) then
-			return 'raylua_' .. T .. '_wrap(L, result)'
+			return 'lua_raylib_' .. T .. '_wrap(L, result)'
 		else
 			UNIMPLEMENTED_RETURNS[T] = true
 			return 'UNIMPLEMENTED_FOR_' .. T .. '(L, result)', 1, true

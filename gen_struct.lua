@@ -21,9 +21,9 @@ typedef struct Wrapped${structType} {
 		end
 
 		pp([[
-static int raylua_${structType}_get_${fieldName}(lua_State *L)
+static int lua_raylib_${structType}_get_${fieldName}(lua_State *L)
 {
-  Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
+  Wrapped${structType} *obj = luaL_checkudata(L, 1, "lua_raylib_${structType}");
   if (obj->unloaded) return luaL_error(L, "Resource[${structType}] was unloaded");
   ${fieldType} result = obj->content.${fieldName};
   ${converter};
@@ -39,9 +39,9 @@ static int raylua_${structType}_get_${fieldName}(lua_State *L)
  	end
 
 	pp([[
-static int raylua_${structType}_unload(lua_State *L)
+static int lua_raylib_${structType}_unload(lua_State *L)
 {
-  Wrapped${structType} *obj = luaL_checkudata(L, 1, "raylua_${structType}");
+  Wrapped${structType} *obj = luaL_checkudata(L, 1, "lua_raylib_${structType}");
   if (!obj->unloaded)
   {
     ${finalizer}
@@ -50,16 +50,16 @@ static int raylua_${structType}_unload(lua_State *L)
   return 0;
 }
 
-static const luaL_Reg raylua_${structType}[] = {
-  {"__gc", raylua_${structType}_unload},
-  {"unload", raylua_${structType}_unload},]], {
+static const luaL_Reg lua_raylib_${structType}[] = {
+  {"__gc", lua_raylib_${structType}_unload},
+  {"unload", lua_raylib_${structType}_unload},]], {
 		structType = structType,
 		finalizer = finalizer( structType, 'obj->content' ),
 	})
 
 	for i, type_name in ipairs( structFields ) do
 		pp([[
-  {"get${name}", raylua_${structType}_get_${name}},]], {
+  {"get${name}", lua_raylib_${structType}_get_${name}},]], {
 		name = type_name[2],
 		structType = structType,
 	})
@@ -70,20 +70,26 @@ static const luaL_Reg raylua_${structType}[] = {
 ]],{})
 
 	pp([[
-static void raylua_${structType}_register(lua_State *L)
+static void lua_raylib_${structType}_register(lua_State *L)
 {
-  luaL_newmetatable(L, "raylua_${structType}");
+  luaL_newmetatable(L, "lua_raylib_${structType}");
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
-	raylua_register(L, raylua_${structType});
+  lua_raylib_register(L, lua_raylib_${structType});
 }
 
-static void raylua_${structType}_wrap(lua_State *L, ${structType} *content)
+static void lua_raylib_${structType}_wrap(lua_State *L, ${structType} *content)
 {
   Wrapped${structType} *ud = lua_newuserdata(L, sizeof *ud);
   ud->content = *content;
   ud->unloaded = 0;
-  luaL_setmetatable(L, "raylua_${structType}");
+  luaL_setmetatable(L, "lua_raylib_${structType}");
+}
+
+static int lua_raylib_${structType}_getmetatable(lua_State *L)
+{
+  luaL_getmetatable(L, "lua_raylib_${structType}");
+  return 1;
 }
 ]], {structType = structType})
 end

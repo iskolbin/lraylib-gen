@@ -5,25 +5,30 @@ local cToLua = require( 'converter' ).cToLua
 local isBlacklisted = require( 'blacklisted' ).isBlacklisted
 local aliases = require( 'aliases' )
 
-return function( fileName )
+return function( fileName, apiDef )
 	local nFuncs, nUnimplemented, nUnimplenentedArgs, nUnimplementedReturns, implementedFunctionNames = 0, 0, 0, 0, {}
 	local s = nil
+	local bodyName, bodyArgs, comment = '', '', '' 
 	for line in io.lines( fileName ) do
 		-- Multiline support
 		if s then
 			s = s:sub(1,-2) .. line
 		end
-		if line:sub(1,5) == 'RLAPI' then
+		if line:match('^(%u+)') == apiDef then
 			s = line
 		end
-
-		if s and s:match(';') then
+		--local bodyName, bodyArgs, comment = '', '', line:match('//%s*(.+)')
+		if s and s:match('%)') then
 			-- Varargs (not implemented)
 			local varargIndex
 			s, varargIndex = s:gsub('%,%s%.%.%.', '')
 			local funcVararg = varargIndex > 0
 
-			local bodyName, bodyArgs, comment = s:match( 'RLAPI (.+)%((.-)%);%s*//%s*(.+)' )
+			if apiDef == 'RLAPI' then
+				bodyName, bodyArgs, comment = s:match( apiDef .. ' (.+)%((.-)%);%s*//%s*(.+)' )
+			elseif apiDef == 'RMDEF' then
+				bodyName, bodyArgs = s:match( apiDef .. ' (.+)%((.+)%)' )
+			end
 			-- Parse function name and return type
 			local funcName, funcReturnType = parseType( bodyName )
 
@@ -40,11 +45,12 @@ return function( fileName )
 				end
 				nFuncs = nFuncs + 1
 				-- (void)L added to silence unused warnings
-				funcCode[#funcCode+1] = ( '\n// %s\nstatic int raylua_%s(lua_State *L)\n{\n  (void)L;' ):format( comment, funcName )
+				funcCode[#funcCode+1] = ( '\n// %s\nstatic int lua_raylib_%s(lua_State *L)\n{\n  (void)L;' ):format( comment, funcName )
 				local i, unimplementedArgConvert, unimplemented = 0, false, false
 				for _, arg in ipairs( funcArgs ) do
 					i = i + 1
 					local argName, argType = arg[1], arg[2]
+					argName = aliases[argName] or argName
 					local converted, j, unimplementedCurrentArgConvert = luaToC( argType, i )
 					if j and j > i then
 						i = j
@@ -91,10 +97,12 @@ return function( fileName )
 					pp('// ${funcName} is not implemented', {funcName = funcName} )
 				else
 					implementedFunctionNames[#implementedFunctionNames+1] = funcName
-					print( table.concat( funcCode, '\n' ))
+					pp( table.concat( funcCode, '\n' ))
 				end
 			end
 			s = nil
+		else
+			comment = line:match('//%s*(.+)')
 		end
 	end
 	return nFuncs, nUnimplemented, nUnimplenentedArgs, nUnimplementedReturns, implementedFunctionNames
