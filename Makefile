@@ -11,7 +11,7 @@ init:
 	git submodule update --init --recursive
 
 gen:
-	lua gen.lua $(RAYLIB_PATH)/src/raylib.h $(RAYLIB_PATH)/src/raymath.h > raylib.c
+	lua gen.lua $(RAYLIB_PATH)/src/raylib.h $(RAYLIB_PATH)/src/raymath.h $(RAYLIB_PATH)/src/easings.h > raylib.c
 
 libraylib.a:
 	cd $(RAYLIB_PATH)/src && $(MAKE) PLATFORM=PLATFORM_DESKTOP CFLAGS+=-fPIC

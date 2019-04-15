@@ -26,8 +26,8 @@ return function( fileName, apiDef )
 
 			if apiDef == 'RLAPI' then
 				bodyName, bodyArgs, comment = s:match( apiDef .. ' (.+)%((.-)%);%s*//%s*(.+)' )
-			elseif apiDef == 'RMDEF' then
-				bodyName, bodyArgs = s:match( apiDef .. ' (.+)%((.+)%)' )
+			elseif apiDef == 'RMDEF' or apiDef == 'EASEDEF' then
+				bodyName, bodyArgs = s:match( apiDef .. ' (.-)%((.-)%)' )
 			end
 			-- Parse function name and return type
 			local funcName, funcReturnType = parseType( bodyName )
@@ -45,7 +45,8 @@ return function( fileName, apiDef )
 				end
 				nFuncs = nFuncs + 1
 				-- (void)L added to silence unused warnings
-				funcCode[#funcCode+1] = ( '\n// %s\nstatic int lua_raylib_%s(lua_State *L)\n{\n  (void)L;' ):format( comment, funcName )
+				comment = comment and ('\n// ' .. comment .. '\n') or ''
+				funcCode[#funcCode+1] = ( '%sstatic int lua_raylib_%s(lua_State *L)\n{\n  (void)L;' ):format( comment, funcName )
 				local i, unimplementedArgConvert, unimplemented = 0, false, false
 				for _, arg in ipairs( funcArgs ) do
 					i = i + 1
