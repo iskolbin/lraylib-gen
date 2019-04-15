@@ -20,4 +20,4 @@ build-osx: gen libraylib.a
 	cc -Wall -Wextra $(CFLAGS) raylib.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -llua -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -fPIC -shared -o raylib.so
 
 build-linux: gen libraylib.a
-	cc -Wall -Wextra $(CFLAGS) raylib.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -lX11 -lpthread -ldl -fPIC -shared -o raylua.so
+	cc -Wall -Wextra $(CFLAGS) raylib.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -lX11 -lpthread -ldl -fPIC -shared -o raylib.so

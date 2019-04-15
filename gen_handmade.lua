@@ -129,7 +129,8 @@ static int lua_raylib_QuaternionToAxisAngle(lua_State *L)
 // Orthonormalize provided vectors, makes vectors normalized and orthogonal to each other, Gram-Schmidt function implementation 
 static int lua_raylib_Vector3OrthoNormalize(lua_State *L)
 {
-  Vector3 v1, v2;
+  Vector3 v1 = (Vector3) {luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3)};
+  Vector3 v2 = (Vector3) {luaL_checknumber(L, 4), luaL_checknumber(L, 5), luaL_checknumber(L, 6)};
   Vector3OrthoNormalize(&v1, &v2);
   lua_pushnumber(L, v1.x);
   lua_pushnumber(L, v1.y);

@@ -3,8 +3,6 @@ local list = {
 	'UpdateVrTracking',
 	'GetWindowHandle',
 	'UpdateTexture',
-
-
 	'GetWaveData', -- need output arrays
 	'LoadImageEx', -- need input arrays
 	'LoadImagePro',
@@ -14,7 +12,6 @@ local list = {
 	'LoadFontData',
 	'LoadWaveEx',
 	'UpdateSound',
-
 	'SetShaderValue',
 	'SetShaderValueV',
 
