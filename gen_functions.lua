@@ -17,7 +17,6 @@ return function( fileName, apiDef )
 		if line:match('^(%u+)') == apiDef then
 			s = line
 		end
-		--local bodyName, bodyArgs, comment = '', '', line:match('//%s*(.+)')
 		if s and s:match('%)') then
 			-- Varargs (not implemented)
 			local varargIndex

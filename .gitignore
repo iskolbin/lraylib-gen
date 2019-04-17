@@ -1,3 +1,5 @@
+*_bind.c
+*_defs.lua
 *.swp
 *.swo
 *.c
