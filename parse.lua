@@ -42,32 +42,35 @@ return function( fileName, apiDef, aliases )
 			local funcName, returnType = parseType( bodyName )
 			if not alreadyProcessed[funcName] then
 				alreadyProcessed[funcName] = true
-				io.write( '    {name = "', funcName, '"' )
+				io.write( '    ' .. funcName .. ' = {' )
 				returnType = aliases[returnType] or returnType
+				local fields = {}
 
 				-- Parse arguments
 				if bodyArgs ~= 'void' then
 					local i = 0
+					local args = {}
 					for arg in bodyArgs:gmatch( '([%w%s%*]+)' ) do
 						i = i + 1
 						local argName, argType = parseType( arg )
 						argName = aliases[argName] or argName
-						io.write( (i > 1 and ', ' or ', args = {') .. '{"',argName,'", "',argType,'"}')
+						args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
 					end
 					if i > 0 then
-						io.write( '}' )
+						fields[#fields+1] = 'args = {' .. table.concat( args, ', ' ) .. '}'
 					end
 				end
 
 				if isVararg then
-					io.write( ', vararg = true' )
+					fields[#fields+1] = 'vararg = true'
 				end
 				if returnType ~= 'void' then
-					io.write( ', returns = "', returnType, '"' )
+					fields[#fields+1] = 'returns = "' .. returnType .. '"'
 				end
 				if comment ~= nil and comment ~= '' then
-					io.write( ', comment = ', ( '%q' ):format( comment ))
+					fields[#fields+1] = 'comment = ' .. ( '%q' ):format( comment )
 				end
+				io.write( table.concat( fields, ', ' ))
 				print( '},' )
 				s = nil
 			else
