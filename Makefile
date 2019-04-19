@@ -36,3 +36,4 @@ bind:
 so-osx:
 	cc -Wall -Wextra $(CFLAGS) easings_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o easings.so
 	cc -Wall -Wextra $(CFLAGS) raymath_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o raymath.so
+	cc -Wall -Wextra $(CFLAGS) raylib_bind.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -llua$(LUA) -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -fPIC -shared -o raylib.so
