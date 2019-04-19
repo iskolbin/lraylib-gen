@@ -76,6 +76,7 @@ return function( conf, defs, custom )
 	print( '#define luaL_newlib(L,lib) luaL_register(L,"' .. conf.libname .. '",lib)' )
 	print( '#define luaL_setfuncs(L,l,z) luaL_register(L,NULL,l)' )
 	print( '#define luaL_setmetatable(L,mt) luaL_getmetatable(L,mt);lua_setmetatable(L,-2)' )
+	print( '#define lua_rawlen lua_objlen' )
 	print( '#endif' )
 	print()
 	local funcNames = {}
