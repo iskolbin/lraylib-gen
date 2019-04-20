@@ -17,10 +17,12 @@ local function tolua( T )
 		return 'lua_pushinteger(L, result)'
 	elseif isNumber[T] then
 		return 'lua_pushnumber(L, result)'
-	elseif T == 'const char *' or T == 'char *' then
+	elseif T == 'const char *' or T == 'char *'  or T == 'const char*' or T == 'char*' then
 		return 'lua_pushstring(L, result)'
 	elseif T == 'bool' then
 		return 'lua_pushboolean(L, result)'
+	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
+		return 'lua_pushlightuserdata(L, result)'
 	else
 		local Tref = T:match( '(%w+)%s*%*' )
 		if Tref then
@@ -40,6 +42,8 @@ local function fromlua( T, index )
 		return 'luaL_checkstring(L, ' .. index .. ')'
 	elseif T == 'bool' then
 		return 'luaL_checknumber(L, ' .. index .. ')'
+	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
+		return 'luaX_checklightuserdata(L, ' .. index .. ', "?")'
 	else
 		local Tref = T:match( '(%w+)%s*%*' )
 		if Tref then
@@ -91,6 +95,15 @@ return function( conf, defs, custom )
 	print( '#define lua_rawlen lua_objlen' )
 	print( '#endif' )
 	print()
+	print( 'static void * luaX_checklightuserdata(lua_State *L, int index, const char *funcName) {' )
+	print( '  if (lua_islightuserdata(L, index)) {' )
+	print( '    return lua_touserdata(L, index);' )
+	print( '  } else {' )
+	print( '    luaL_error(L, "bad argument #%d to %s (lightuserdata expected, got %s)", index, funcName, lua_typename(L, index));' )
+	print( '    return NULL;' )
+	print( '  }' )
+	print( '}' )
+	print()
 	local funcNames = {}
 	for funcName, f in pairs( defs.funcs ) do
 		funcNames[#funcNames+1] = funcName
@@ -117,6 +130,9 @@ return function( conf, defs, custom )
 				print( '  ' .. f.returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
 				local returnConverter, returnCount = tolua( f.returns )
 				print( '  ' .. returnConverter .. ';' )
+				if (f.resultFinalizer) then
+					print( '  ' .. f.resultFinalizer .. ';' )
+				end
 				print( '  return ' .. (returnCount or 1) .. ';' )
 			else
 				print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
@@ -186,6 +202,10 @@ return function( conf, defs, custom )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
 	for structName in pairs( defs.structs ) do
 		print( '  ' .. prefix .. structName .. '_register(L);' )
+	end
+	for _, const in ipairs( defs.consts ) do
+		local name, type_ = const[1], const[2]
+		print( '  lua_push' .. (type_ == 'int' and 'integer' or 'number') .. '(L, ' .. name .. '); lua_setfield(L, -2, "' .. name .. '");' ) 
 	end
 	print( '  return 1;' )
 	print( '}' )

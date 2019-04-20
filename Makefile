@@ -33,6 +33,11 @@ bind:
 	lua -e 'require("bind")({libname = "easings", prefix = "l_", includes = {"raylib/src/easings.h"}, defines = {"PI M_PI"}}, require("easings_defs"))' > easings_bind.c
 	lua -e 'require("bind")({libname = "raymath", prefix = "l_", includes = {"raylib/src/raymath.h"}, defines = {"RAYMATH_HEADER_ONLY"}}, require("raymath_defs"), require("raymath_custom"))' > raymath_bind.c
 
+so-linux:
+	cc -Wall -Wextra $(CFLAGS) easings_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o easings.so
+	cc -Wall -Wextra $(CFLAGS) raymath_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o raymath.so
+	cc -Wall -Wextra $(CFLAGS) raylib_bind.c $(LUA_HEADERS) -I$(RAYLIB_PATH)/src $(RAYLIB_STATIC) -llua$(LUA) -lX11 -lpthread -ldl -fPIC -shared -o raylib.so
+
 so-osx:
 	cc -Wall -Wextra $(CFLAGS) easings_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o easings.so
 	cc -Wall -Wextra $(CFLAGS) raymath_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o raymath.so

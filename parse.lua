@@ -102,14 +102,19 @@ return function( fileName, apiDef, aliases )
 				if not line:match( '%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						print( '    "' .. name .. '",' )
+						print( '    {"' .. name .. '","int"},' )
 					end
 				end
 			end
 		else
-			local name = line:match( '#define%s+([%u_]+)%s+[%d%.fF%+%-]+' )
+			local name, value = line:match( '#define%s+([%u_]+)%s+([%d%.fF%+%-]+)' )
 			if name then
-				print( '    "' .. name .. '",' )
+				value = value:gsub( 'f', '' )	
+				if tonumber( value ) == math.floor( tonumber( value )) then
+					print( '    {"' .. name .. '","int"},' )
+				else
+					print( '    {"' .. name .. '","float"},' )
+				end
 			end
 		end
 	end

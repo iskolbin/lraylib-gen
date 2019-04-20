@@ -15,6 +15,8 @@ return {
   return count;
 		]]},
 
+		GetFileNameWithoutExt = { resultFinalizer = 'free((void*)result)' },
+
 		CheckCollisionRaySphereEx = { src = [[
   Ray ray = (*(Ray*)luaL_checkudata(L, 1, "Ray"));
   Vector3 spherePosition = (*(Vector3*)luaL_checkudata(L, 2, "Vector3"));
@@ -68,9 +70,11 @@ return {
 	return 0;
 		]]},
 	
-		TextJoin = { blacklisted = true },
+		TextJoin = { returnsArgs = {{'count', 'int'}}, blacklisted = true },
 		TextSplit = { blacklisted = true },
-		GetWindowHandle = { blacklisted = true },
+		TextAppend = { updatesArgs = {{'position', 'int'}}, blacklisted = true },
+		TextReplace = { resultFinalizer = 'free((void*)result)' },
+		TextInsert = { resultFinalizer = 'free((void*)result)' },
 		DrawTextRecEx = { args = {
 			{"font", "Font"}, {"text", "const char *"}, {"rec", "Rectangle"}, {"fontSize", "float"},
 			{"spacing", "float"}, {"wordWrap", "bool"}, {"tint","Color"}, {"selectStart", "int"}, 

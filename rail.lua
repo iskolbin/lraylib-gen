@@ -267,26 +267,48 @@ local rail = {
 	storage = {
 		set = raylib.StorageSaveValue,
 		get = raylib.StorageLoadValue,
-	}
+	},
+
+	math = {},
+
+	ease = {
+		linear = raylib.EaseLinearNone,
+	},
 }
+
+local function updateMath( funcName, func, subs )
+	for typeName, changeTo in pairs( subs ) do
+		if funcName:match( k ) then
+			rail.math[funcName:gsub( subs )] = func
+		end
+	end
+end
+
+local function updateEasings( funcName, func )
+	if funcName:match('^Ease') then
+		rail.ease[funcName:sub( 5 ):lower()] = func
+	end
+end
 
 for k, v in pairs( raylib ) do
 	if type( v ) == 'number' then
 		rail[k] = v
+	else
+		updateMath( k, v, { Vector2 = vec2, Vector3 = vec3, Vector4 = vec4, Matrix = mat, Quarterion = quart} )
+		updateEasings( k, v )
 	end
 end
 
-local function updateImageMetatable()
-	local img = raylib.GenImageColor(0, 0, 0)
-	local mt = getmetatable( img )
-	mt.resize = function(...) raylib.ImageResize( ... ) end
+local function updateImageMetaTable()
+	local mt = raylib.GetImageMetaTable()
+	for k, v in pairs( rail.image ) do mt[k] = v end
 end
 
 function rail.run()
 	local conf = rail.conf.window
 	raylib.InitWindow( conf.width, conf.height, conf.title )
 	raylib.InitAudioDevice()
-	updateImageMetatable()
+	updateImageMetaTable()
 	rail.load()
 	if conf.icon then
 		raylib.SetIcon( conf.icon )
