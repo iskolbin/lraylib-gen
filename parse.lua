@@ -101,7 +101,7 @@ return function( fileName, apiDef, aliases )
 			if line:match( '}' ) then
 				isReadingEnum = false
 			else
-				if not line:match( '%s*//' ) then
+				if not line:match( '^%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
 						print( '    {"' .. name .. '", "int"},' )

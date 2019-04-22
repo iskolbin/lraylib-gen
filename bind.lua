@@ -39,7 +39,7 @@ local function fromlua( T, index )
 		return 'luaL_checkinteger(L, ' .. index .. ')'
 	elseif isNumber[T] then
 		return 'luaL_checknumber(L, ' .. index .. ')'
-	elseif T == 'const char *' or T == 'char *' then
+	elseif T == 'const char *' or T == 'char *' or T == 'const char*' or T == 'char*' then
 		return 'luaL_checkstring(L, ' .. index .. ')'
 	elseif T == 'bool' then
 		return 'luaL_checknumber(L, ' .. index .. ')'
@@ -71,6 +71,7 @@ return function( conf, defs, custom )
 		defs = merge( defs, custom )
 	end
 
+	-- Primitive sturcts are structs with primitive fields only, Vector2 for instance
 	local isPrimitiveStruct = {}
 	for structName, structFields in pairs( defs.structs ) do
 		local primitive = true
@@ -158,13 +159,14 @@ return function( conf, defs, custom )
 		print()
 	end
 
-	-- Constructors for structs
+	-- Constructors for structs, for any structs zero constructor is exposed
 	for structName, structFields in pairs( defs.structs ) do
 		print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
 		print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
 		print( '  if (lua_gettop(L) == 1) {' )
 		print( '   ' .. structName .. ' temp = {};' )
 		print( '    *obj = temp;' )
+		-- for primitive structs init-all-fields consturctor is also possible
 		if isPrimitiveStruct[structName] then
 			print( '  } else {' )
 			for i, fieldName_Type in ipairs( structFields ) do
@@ -179,6 +181,7 @@ return function( conf, defs, custom )
 	end
 
 	print( 'static const luaL_Reg ' .. prefix .. 'functions[] = {' )
+	-- Add module functions
 	for _, funcName in ipairs( funcNames ) do
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
 	end
@@ -190,9 +193,11 @@ return function( conf, defs, custom )
 	print( '};' )
 	print()
 
+	-- Generate metatables for structs
 	for structName, structFields in pairs( defs.structs ) do
 		local primitiveFields = isPrimitiveStruct[structName]
 		if primitiveFields then
+			-- Primitive structs have proper equality check
 			print( 'static int ' .. prefix .. structName .. '__eq(lua_State *L) {' )
 			print( '  lua_getmetatable(L, 1); lua_getmetatable(L, 2);' )
 			print( '  if (lua_rawequal(L, -1, -2) == 0) {' )
@@ -200,7 +205,7 @@ return function( conf, defs, custom )
 			print( '  } else {' )
 			print( '    ' .. structName .. ' *self = lua_touserdata(L, 1);' )
 			print( '    ' .. structName .. ' *other = lua_touserdata(L, 2);' )
-			io.write(   '  lua_pushboolean(L, ' )
+			io.write(   '    lua_pushboolean(L, ' )
 			for i, fieldName_Type in ipairs( primitiveFields ) do
 				io.write( i > 1 and ' && ' or '', 'self->', fieldName_Type[1], ' == other->', fieldName_Type[1] )
 			end
@@ -209,6 +214,7 @@ return function( conf, defs, custom )
 			print( '  return 1;' )
 			print( '}' )
 			print()
+			-- Primitive structs have unpack method
 			print( 'static int ' .. prefix .. structName .. '_unpack(lua_State *L) {' )
 			print( '  ' .. structName .. ' *self = luaL_checkudata(L, 1, "' .. structName .. '");' )
 			for i, fieldName_Type in ipairs( primitiveFields ) do
@@ -219,18 +225,23 @@ return function( conf, defs, custom )
 			print()
 		end
 
+		-- Generate setters and getters for structs as metamethods
+		-- For array-like fields generate indexed getter/setter with boundary checking
 		for _, name_T_length in ipairs( structFields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
 			local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
+			local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
+			if length == "DYNAMIC" then
+				getIdx = getIdx .. '\n  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);'
+			elseif length then
+				getIdx = getIdx .. '\n  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');'
+			end
+
+			-- Setter
 			print( 'static int ' .. prefix .. structName .. '_set_' .. name .. '(lua_State *L) {' )
 			print( getObj )
 			if length then
-				print( '  int idx = luaL_checkinteger(L, 2);' )
-				if length == "DYNAMIC" then
-					print( '  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);' )
-				else
-					print( '  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');' )
-				end
+				print( getIdx )
 				print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3 ) .. ';' )
 				print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
 			else
@@ -241,10 +252,12 @@ return function( conf, defs, custom )
 			print( '  return 1;' )
 			print( '}' )
 			print()
+
+			-- Getter
 			print( 'static int ' .. prefix .. structName .. '_get_' .. name .. '(lua_State *L) {' )
 			print( getObj )
 			if length then
-				print( '  int idx = luaL_checkinteger(L, 2);' )
+				print( getIdx )
 				print( '  ' .. T .. ' result = obj->' .. name .. '[idx];' )
 			else
 				print( '  ' .. T .. ' result = obj->' .. name .. ';' )
@@ -260,10 +273,10 @@ return function( conf, defs, custom )
 			local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
 			print( '  {"get' .. uppercasedName .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
 			print( '  {"set' .. uppercasedName .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
-			if isPrimitiveStruct[structName] then
-				print( '  {"__eq", ' .. prefix .. structName .. '__eq},' )
-				print( '  {"unpack", ' .. prefix .. structName .. '_unpack},' )
-			end
+		end
+		if isPrimitiveStruct[structName] then
+			print( '  {"__eq", ' .. prefix .. structName .. '__eq},' )
+			print( '  {"unpack", ' .. prefix .. structName .. '_unpack},' )
 		end
 		print( '  {NULL, NULL}' )
 		print( '};' )

@@ -74,6 +74,17 @@ return {
 	return 0;
 		]]},
 	
+		LoadMaterials = { src = [[
+  int count;
+  Material *materials = LoadMaterials(luaL_checkstring(L,1), &count);
+	for (int i = 0; i < count; i++) {
+    Material *material = lua_newuserdata(L, sizeof *material);
+    *material = materials[i];
+    luaL_setmetatable(L, "Material");
+  }
+  return count;
+		]]},
+
 		TextJoin = { returnsArgs = {{'count', 'int'}}, blacklisted = true },
 		TextSplit = { blacklisted = true },
 		TextAppend = { updatesArgs = {{'position', 'int'}}, blacklisted = true },
