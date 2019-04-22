@@ -157,6 +157,11 @@ return function( conf, defs, custom )
 			print( getObj )
 			if length then
 				print( '  int idx = luaL_checkinteger(L, 2);' )
+				if length == "DYNAMIC" then
+					print( '  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);' )
+				else
+					print( '  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');' )
+				end
 				print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3 ) .. ';' )
 				print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
 			else
@@ -183,8 +188,9 @@ return function( conf, defs, custom )
 		print( 'static const luaL_Reg ' .. prefix .. structName .. '[] = {' )
 		for _, name_T in ipairs( structFields ) do
 			local name = name_T[1]
-			print( '  {"get' .. name .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
-			print( '  {"set' .. name .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
+			local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
+			print( '  {"get' .. uppercasedName .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
+			print( '  {"set' .. uppercasedName .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
 		end
 		print( '  {NULL, NULL}' )
 		print( '};' )

@@ -44,8 +44,8 @@ return function( fileName, apiDef, aliases )
 				alreadyProcessed[funcName] = true
 				io.write( '    ' .. funcName .. ' = {' )
 				returnType = aliases[returnType] or returnType
-				local fields = {}
 
+				local fields = {}
 				-- Parse arguments
 				if bodyArgs ~= 'void' then
 					local i = 0
@@ -54,6 +54,7 @@ return function( fileName, apiDef, aliases )
 						i = i + 1
 						local argName, argType = parseType( arg )
 						argName = aliases[argName] or argName
+						argType = argType:gsub( '%s+%*', '*' )
 						args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
 					end
 					if i > 0 then
@@ -65,6 +66,7 @@ return function( fileName, apiDef, aliases )
 					fields[#fields+1] = 'vararg = true'
 				end
 				if returnType ~= 'void' then
+					returnType = returnType:gsub( '%s+%*', '*' )
 					fields[#fields+1] = 'returns = "' .. returnType .. '"'
 				end
 				if comment ~= nil and comment ~= '' then
@@ -102,7 +104,7 @@ return function( fileName, apiDef, aliases )
 				if not line:match( '%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						print( '    {"' .. name .. '","int"},' )
+						print( '    {"' .. name .. '", "int"},' )
 					end
 				end
 			end
@@ -111,14 +113,23 @@ return function( fileName, apiDef, aliases )
 			if name then
 				value = value:gsub( 'f', '' )	
 				if tonumber( value ) == math.floor( tonumber( value )) then
-					print( '    {"' .. name .. '","int"},' )
+					print( '    {"' .. name .. '", "int"},' )
 				else
-					print( '    {"' .. name .. '","float"},' )
+					print( '    {"' .. name .. '", "float"},' )
 				end
 			end
 		end
 	end
 	print( '  },' )
+
+	local function processStructArrayFields( trimmedFieldType, fieldLength )
+		local fieldType, starsCount = trimmedFieldType:gsub( '%*', '' )
+		if fieldLength == '' and starsCount > 0 and (fieldType == 'unsigned char' or fieldType == 'int' or fieldType == 'float' or fieldType == 'unsigned short' or fieldType == 'short' or fieldType:sub(1,1):match('%u')) then
+			return  fieldType .. ('*'):rep(starsCount-1), ', "DYNAMIC"'
+		else
+			return trimmedFieldType, fieldLength
+		end
+	end
 
 	print( '  structs = {' )
 	local isReadingStruct, isComment = false, false
@@ -144,7 +155,9 @@ return function( fileName, apiDef, aliases )
 					if fieldType and fieldNames then
 						for nameStars in fieldNames:gmatch( '([%w%*]+)' ) do
 							local name, stars = nameStars:match( '(%w+)' ), nameStars:match( '(%*+)' ) or ''
-							print( '      {"' .. name .. '", "' .. fieldType .. stars .. '"' .. fieldLength .. '},' )
+							local trimmedFieldType = (fieldType .. stars):gsub( '%s+%*', '*' )
+							fieldType, fieldLength = processStructArrayFields( trimmedFieldType, fieldLength )
+							print( '      {"' .. name .. '", "' .. fieldType .. '"' .. fieldLength .. '},' )
 						end
 					end
 				end

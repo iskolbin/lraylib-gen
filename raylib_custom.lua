@@ -15,6 +15,10 @@ return {
   return count;
 		]]},
 
+		--GetDirectoryFiles = { resultFinalizer = 'ClearDirectoryFiles()' },
+
+		--GetDroppedFiles = { resultFinalizer = 'ClearDroppedFiles()' },
+
 		GetFileNameWithoutExt = { resultFinalizer = 'free((void*)result)' },
 
 		CheckCollisionRaySphereEx = { src = [[
