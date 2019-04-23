@@ -14,6 +14,14 @@ end
 return function( fileName, apiDef, aliases )
 	local s = nil
 	local alreadyProcessed = {}
+
+	local function unalias( t )
+		if not t or not aliases then return t end
+		t = t:gsub( '%s+%*', '*' )
+		local t, count = t:gsub( '%*', '' )
+		return (aliases[t] or t) .. ('*'):rep( count )
+	end
+
 	print( 'return {' )
 	print( '  header = ' .. ('%q'):format( fileName ) .. ',' )
 	print( '  funcs = {' )
@@ -43,7 +51,7 @@ return function( fileName, apiDef, aliases )
 			if not alreadyProcessed[funcName] then
 				alreadyProcessed[funcName] = true
 				io.write( '    ' .. funcName .. ' = {' )
-				returnType = aliases[returnType] or returnType
+				returnType = unalias( returnType )
 
 				local fields = {}
 				-- Parse arguments
@@ -53,8 +61,7 @@ return function( fileName, apiDef, aliases )
 					for arg in bodyArgs:gmatch( '([%w%s%*]+)' ) do
 						i = i + 1
 						local argName, argType = parseType( arg )
-						argName = aliases[argName] or argName
-						argType = argType:gsub( '%s+%*', '*' )
+						argType = unalias( argType )
 						args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
 					end
 					if i > 0 then
@@ -66,7 +73,7 @@ return function( fileName, apiDef, aliases )
 					fields[#fields+1] = 'vararg = true'
 				end
 				if returnType ~= 'void' then
-					returnType = returnType:gsub( '%s+%*', '*' )
+					returnType = unalias( returnType )
 					fields[#fields+1] = 'returns = "' .. returnType .. '"'
 				end
 				if comment ~= nil and comment ~= '' then
@@ -157,6 +164,7 @@ return function( fileName, apiDef, aliases )
 							local name, stars = nameStars:match( '(%w+)' ), nameStars:match( '(%*+)' ) or ''
 							local trimmedFieldType = (fieldType .. stars):gsub( '%s+%*', '*' )
 							fieldType, fieldLength = processStructArrayFields( trimmedFieldType, fieldLength )
+							fieldType = unalias( fieldType )
 							print( '      {"' .. name .. '", "' .. fieldType .. '"' .. fieldLength .. '},' )
 						end
 					end

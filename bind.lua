@@ -71,17 +71,9 @@ return function( conf, defs, custom )
 		defs = merge( defs, custom )
 	end
 
-	local aliases = defs.aliases or {}
-	local function unalias( t )
-		if not t then return t end
-		local t, count = t:gsub( '%*', '' )
-		return (aliases[t] or t) .. ('*'):rep( count )
-	end
-
 	-- Primitive sturcts are structs with primitive fields only, Vector2 for instance
 	local isPrimitiveStruct = {}
 	for structName, structFields in pairs( defs.structs ) do
-		structName = unalias( structName )
 		local primitive = true
 		for _, name_T_length in ipairs( structFields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
@@ -131,7 +123,7 @@ return function( conf, defs, custom )
 	local funcNames = {}
 	local unpackedFuncNames = {}
 	for funcName, f in pairs( defs.funcs ) do
-		local returns = unalias( f.returns )
+		local returns = f.returns
 		local hasPrimitives = isPrimitiveStruct[returns]
 		funcNames[#funcNames+1] = funcName
 		if f.comment then
@@ -149,7 +141,6 @@ return function( conf, defs, custom )
 			local argNames = {}
 			for i, name_type in ipairs( f.args or {} ) do
 				local argName, argType = name_type[1], name_type[2]
-				argType = unalias( argType )
 				if isPrimitiveStruct[argType] then
 					hasPrimitives = true
 				end
@@ -195,7 +186,6 @@ return function( conf, defs, custom )
 					index = index + 1
 					local argName, argType = name_type[1], name_type[2]
 					argNames[#argNames+1] = argName
-					argType = unalias( argType )
 					if isPrimitiveStruct[argType] then
 						local argsU = {}
 						for i, name_type in ipairs( isPrimitiveStruct[argType] ) do
@@ -228,7 +218,6 @@ return function( conf, defs, custom )
 
 	-- Constructors for structs, for any structs zero constructor is exposed
 	for structName, structFields in pairs( defs.structs ) do
-		structName = unalias( structName )
 		print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
 		print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
 		print( '  if (lua_gettop(L) == 1) {' )
@@ -239,7 +228,6 @@ return function( conf, defs, custom )
 			print( '  } else {' )
 			for i, fieldName_Type in ipairs( structFields ) do
 				local fieldName, fieldType = fieldName_Type[1], fieldName_Type[2]
-				fieldType = unalias( fieldType )
 				print( '    obj->' .. fieldName .. ' = ' .. fromlua( fieldType, i ) .. ';' )
 			end
 		end
@@ -260,7 +248,6 @@ return function( conf, defs, custom )
 	end
 	-- Add constructors for structs
 	for structName in pairs( defs.structs ) do
-		structName = unalias( structName )
 		print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
 	end
 	print( '  {NULL, NULL}' )
@@ -269,7 +256,6 @@ return function( conf, defs, custom )
 
 	-- Generate metatables for structs
 	for structName, structFields in pairs( defs.structs ) do
-		structName = unalias( structName )
 		local primitiveFields = isPrimitiveStruct[structName]
 		if primitiveFields then
 			-- Primitive structs have proper equality check
@@ -301,11 +287,11 @@ return function( conf, defs, custom )
 		end
 
 		local function plurify( name )
-			if name:match( 'ices' ) then
+			if name:match( 'ices$' ) then
 				return name:sub( 1, -5 ) .. 'ixAt'
-			elseif name:match( 'es' ) then
+			elseif name:match( 'es$' ) then
 				return name:sub( 1, -3 ) .. 'At'
-			elseif name:match( 's' ) then
+			elseif name:match( 's$' ) then
 				return name:sub( 1, -2 ) .. 'At'
 			else
 				return name .. 'At'
@@ -316,7 +302,6 @@ return function( conf, defs, custom )
 		-- For array-like fields generate indexed getter/setter with boundary checking
 		for _, name_T_length in ipairs( structFields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
-			T = unalias( T )
 			local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
 			local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
 			if length == "DYNAMIC" then
@@ -404,7 +389,7 @@ return function( conf, defs, custom )
 		print( 'static const luaL_Reg ' .. prefix .. structName .. '[] = {' )
 		for _, name_T_length in ipairs( structFields ) do
 			local name = name_T_length[1]
-			local T = unalias( name_T_length[2] )
+			local T = name_T_length[2]
 			local length = name_T_length[3]
 			name = length and plurify( name ) or name
 			local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
@@ -434,12 +419,10 @@ return function( conf, defs, custom )
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
 	for structName in pairs( defs.structs ) do
-		structName = unalias( structName )
 		print( '  ' .. prefix .. structName .. '_register(L);' )
 	end
 	for _, const in ipairs( defs.consts ) do
 		local name, type_ = const[1], const[2]
-		type_ = unalias( type_ )
 		print( '  lua_push' .. (type_ == 'int' and 'integer' or 'number') .. '(L, ' .. name .. '); lua_setfield(L, -2, "' .. name .. '");' ) 
 	end
 	print( '  return 1;' )
