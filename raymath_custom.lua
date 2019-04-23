@@ -25,4 +25,8 @@ return {
 			{"v", "float", 16},
 		},
 	},
+
+	aliases = {
+		Quaternion = "Vector4",
+	},
 }			

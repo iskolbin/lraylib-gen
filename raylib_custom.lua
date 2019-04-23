@@ -95,5 +95,11 @@ return {
 			{"spacing", "float"}, {"wordWrap", "bool"}, {"tint","Color"}, {"selectStart", "int"}, 
 			{"selectLength", "int"}, {"selectText", "Color"}, {"selectBack", "Color"}},
 		},
-	}
+	},
+
+	aliases = {
+		Camera = "Camera3D",
+		Texture = "Texture2D",
+		Quaternion = "Vector4",
+	},
 }

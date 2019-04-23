@@ -34,7 +34,7 @@ local function tolua( T, name )
 	end
 end
 
-local function fromlua( T, index )
+local function fromlua( T, index, primitiveFields )
 	if isInt[T] then
 		return 'luaL_checkinteger(L, ' .. index .. ')'
 	elseif isNumber[T] then
@@ -71,9 +71,17 @@ return function( conf, defs, custom )
 		defs = merge( defs, custom )
 	end
 
+	local aliases = defs.aliases or {}
+	local function unalias( t )
+		if not t then return t end
+		local t, count = t:gsub( '%*', '' )
+		return (aliases[t] or t) .. ('*'):rep( count )
+	end
+
 	-- Primitive sturcts are structs with primitive fields only, Vector2 for instance
 	local isPrimitiveStruct = {}
 	for structName, structFields in pairs( defs.structs ) do
+		structName = unalias( structName )
 		local primitive = true
 		for _, name_T_length in ipairs( structFields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
@@ -121,7 +129,10 @@ return function( conf, defs, custom )
 	print( '}' )
 	print()
 	local funcNames = {}
+	local unpackedFuncNames = {}
 	for funcName, f in pairs( defs.funcs ) do
+		local returns = unalias( f.returns )
+		local hasPrimitives = isPrimitiveStruct[returns]
 		funcNames[#funcNames+1] = funcName
 		if f.comment then
 			print( '// ' .. f.comment )
@@ -132,19 +143,23 @@ return function( conf, defs, custom )
 		elseif f.src then
 			print( f.src )
 		else
-			if (not f.args or #f.args == 0) and not f.returns then
+			if (not f.args or #f.args == 0) and not returns then
 				print( '  (void)L; // Suppress unused warning' )
 			end
 			local argNames = {}
 			for i, name_type in ipairs( f.args or {} ) do
 				local argName, argType = name_type[1], name_type[2]
+				argType = unalias( argType )
+				if isPrimitiveStruct[argType] then
+					hasPrimitives = true
+				end
 				argNames[i] = argName
 				local argConverter = fromlua( argType, i )
 				print( '  ' .. argType .. ' ' .. argName .. ' = ' .. argConverter .. ';' )
 			end
-			if f.returns then
-				print( '  ' .. f.returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
-				local returnConverter, returnCount = tolua( f.returns )
+			if returns then
+				print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+				local returnConverter, returnCount = tolua( returns, nil, isPrimitiveStruct[returns] )
 				print( '  ' .. returnConverter .. ';' )
 				if f.resultFinalizer then
 					print( '  ' .. f.resultFinalizer .. ';' )
@@ -157,10 +172,63 @@ return function( conf, defs, custom )
 		end
 		print( '}' )
 		print()
+
+		-- Unpacked primitive arguments/returns version
+		if hasPrimitives then
+			local funcNameU = funcName .. 'U'
+			unpackedFuncNames[#unpackedFuncNames+1] = funcNameU
+			if f.comment then
+				print( '// ' .. f.comment .. ' (unpacked version)' )
+			end
+			print( 'static int ' .. prefix .. funcNameU .. '(lua_State *L) {' )
+			if f.blacklisted then
+				print( 'return luaL_error(L, "' .. funcNameU .. ' is blacklisted");' )
+			elseif f.src then
+				print( f.src )
+			else
+				if (not f.args or #f.args == 0) and not returns then
+					print( '  (void)L; // Suppress unused warning' )
+				end
+				local argNames = {}
+				local index = 0
+				for _, name_type in ipairs( f.args or {} ) do
+					index = index + 1
+					local argName, argType = name_type[1], name_type[2]
+					argNames[#argNames+1] = argName
+					argType = unalias( argType )
+					if isPrimitiveStruct[argType] then
+						local argsU = {}
+						for i, name_type in ipairs( isPrimitiveStruct[argType] ) do
+							argsU[#argsU+1] = fromlua( name_type[2], index + i - 1 )
+						end
+						print( '  ' .. argType .. ' ' .. argName .. ' = {' .. table.concat( argsU, ',' ) .. '};' )
+						index = index + #isPrimitiveStruct[argType] - 1
+					else
+						local argConverter = fromlua( argType, index )
+						print( '  ' .. argType .. ' ' .. argName .. ' = ' .. argConverter .. ';' )
+					end
+				end
+				if returns then
+					print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					local returnConverter, returnCount = tolua( returns )
+					print( '  ' .. returnConverter .. ';' )
+					if f.resultFinalizer then
+						print( '  ' .. f.resultFinalizer .. ';' )
+					end
+					print( '  return ' .. (returnCount or 1) .. ';' )
+				else
+					print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					print( '  return 0;' )
+				end
+			end
+			print( '}' )
+			print()
+		end
 	end
 
 	-- Constructors for structs, for any structs zero constructor is exposed
 	for structName, structFields in pairs( defs.structs ) do
+		structName = unalias( structName )
 		print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
 		print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
 		print( '  if (lua_gettop(L) == 1) {' )
@@ -171,6 +239,7 @@ return function( conf, defs, custom )
 			print( '  } else {' )
 			for i, fieldName_Type in ipairs( structFields ) do
 				local fieldName, fieldType = fieldName_Type[1], fieldName_Type[2]
+				fieldType = unalias( fieldType )
 				print( '    obj->' .. fieldName .. ' = ' .. fromlua( fieldType, i ) .. ';' )
 			end
 		end
@@ -185,8 +254,13 @@ return function( conf, defs, custom )
 	for _, funcName in ipairs( funcNames ) do
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
 	end
+	-- Add unpacked primitive args/return functions
+	for _, funcName in ipairs( unpackedFuncNames ) do
+		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
+	end
 	-- Add constructors for structs
 	for structName in pairs( defs.structs ) do
+		structName = unalias( structName )
 		print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
 	end
 	print( '  {NULL, NULL}' )
@@ -195,6 +269,7 @@ return function( conf, defs, custom )
 
 	-- Generate metatables for structs
 	for structName, structFields in pairs( defs.structs ) do
+		structName = unalias( structName )
 		local primitiveFields = isPrimitiveStruct[structName]
 		if primitiveFields then
 			-- Primitive structs have proper equality check
@@ -225,10 +300,23 @@ return function( conf, defs, custom )
 			print()
 		end
 
+		local function plurify( name )
+			if name:match( 'ices' ) then
+				return name:sub( 1, -5 ) .. 'ixAt'
+			elseif name:match( 'es' ) then
+				return name:sub( 1, -3 ) .. 'At'
+			elseif name:match( 's' ) then
+				return name:sub( 1, -2 ) .. 'At'
+			else
+				return name .. 'At'
+			end
+		end
+
 		-- Generate setters and getters for structs as metamethods
 		-- For array-like fields generate indexed getter/setter with boundary checking
 		for _, name_T_length in ipairs( structFields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
+			T = unalias( T )
 			local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
 			local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
 			if length == "DYNAMIC" then
@@ -237,8 +325,9 @@ return function( conf, defs, custom )
 				getIdx = getIdx .. '\n  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');'
 			end
 
+			local name_ = length and plurify( name ) or name
 			-- Setter
-			print( 'static int ' .. prefix .. structName .. '_set_' .. name .. '(lua_State *L) {' )
+			print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. '(lua_State *L) {' )
 			print( getObj )
 			if length then
 				print( getIdx )
@@ -254,7 +343,7 @@ return function( conf, defs, custom )
 			print()
 
 			-- Getter
-			print( 'static int ' .. prefix .. structName .. '_get_' .. name .. '(lua_State *L) {' )
+			print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. '(lua_State *L) {' )
 			print( getObj )
 			if length then
 				print( getIdx )
@@ -266,13 +355,65 @@ return function( conf, defs, custom )
 			print( '  return 1;' )
 			print( '}' )
 			print()
+
+			if isPrimitiveStruct[T] then
+				-- Setter unpacked
+				print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. 'U(lua_State *L) {' )
+				print( getObj )
+				local argsU = {}
+				if length then
+					print( getIdx )
+					local argsU = {}
+					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+						argsU[#argsU+1] = fromlua( name_type[2], i + 2 )
+					end
+					print( '  ' .. T .. ' ' .. name .. 'v = {' .. table.concat( argsU, ', ' ) .. '};' )
+					print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
+				else
+					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+						argsU[#argsU+1] = fromlua( name_type[2], i + 1 )
+					end
+					print( '  ' .. T .. ' ' .. name .. ' = {' .. table.concat( argsU, ', ' ) .. '};' )
+					print( '  obj->' .. name .. ' = ' .. name .. ';' )
+				end
+				print( '  lua_pop(L, ' .. #argsU .. ');' )
+				print( '  return 1;' )
+				print( '}' )
+				print()
+
+				-- Getter unpacked
+				print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. 'U(lua_State *L) {' )
+				print( getObj )
+				if length then
+					print( getIdx )
+					print( '  ' .. T .. ' result = obj->' .. name .. '[idx];' )
+				else
+					print( '  ' .. T .. ' result = obj->' .. name .. ';' )
+				end
+				local argsU = {}
+				for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+					argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1] )
+				end
+				print( '  ' .. table.concat( argsU, ';' ) .. ';' )
+				print( '  return ' .. #argsU .. ';' )
+				print( '}' )
+				print()
+			end
 		end
+
 		print( 'static const luaL_Reg ' .. prefix .. structName .. '[] = {' )
 		for _, name_T_length in ipairs( structFields ) do
 			local name = name_T_length[1]
+			local T = unalias( name_T_length[2] )
+			local length = name_T_length[3]
+			name = length and plurify( name ) or name
 			local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
 			print( '  {"get' .. uppercasedName .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
 			print( '  {"set' .. uppercasedName .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
+			if isPrimitiveStruct[T] then
+				print( '  {"get' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_get_' .. name .. 'U},' )
+				print( '  {"set' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_set_' .. name .. 'U},' )
+			end
 		end
 		if isPrimitiveStruct[structName] then
 			print( '  {"__eq", ' .. prefix .. structName .. '__eq},' )
@@ -293,10 +434,12 @@ return function( conf, defs, custom )
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
 	for structName in pairs( defs.structs ) do
+		structName = unalias( structName )
 		print( '  ' .. prefix .. structName .. '_register(L);' )
 	end
 	for _, const in ipairs( defs.consts ) do
 		local name, type_ = const[1], const[2]
+		type_ = unalias( type_ )
 		print( '  lua_push' .. (type_ == 'int' and 'integer' or 'number') .. '(L, ' .. name .. '); lua_setfield(L, -2, "' .. name .. '");' ) 
 	end
 	print( '  return 1;' )
