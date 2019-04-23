@@ -235,6 +235,10 @@ return function( conf, defs, custom )
 		print( '  return 1;' )
 		print( '}' )
 		print()
+		print( 'static int ' .. prefix .. structName .. '_meta(lua_State *L) {' )
+		print( '  luaL_getmetatable(L, "' .. structName .. '");' )
+		print( '  return 1;' )
+		print( '}' )
 	end
 
 	print( 'static const luaL_Reg ' .. prefix .. 'functions[] = {' )
@@ -246,9 +250,10 @@ return function( conf, defs, custom )
 	for _, funcName in ipairs( unpackedFuncNames ) do
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
 	end
-	-- Add constructors for structs
+	-- Add constructors and metatable accessor for structs
 	for structName in pairs( defs.structs ) do
 		print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
+		print( '  {"' .. structName .. 'Meta", ' .. prefix .. structName .. '_meta},' )
 	end
 	print( '  {NULL, NULL}' )
 	print( '};' )
