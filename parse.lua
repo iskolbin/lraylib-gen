@@ -11,6 +11,39 @@ local function parseType( body )
 	return name, type_
 end
 
+local function OrderedTable()
+	local content = {}
+	return setmetatable( {}, {
+		__index = function( self, k )
+			for i = 1, #content do
+				if content[i][1] == k then
+					return content[i][2]
+				end
+			end
+		end,
+		__newindex = function( self, k, v )
+			for i = 1, #content do
+				if content[i][1] == k then
+					if k == nil then
+						table.remove( content, i )
+					else
+						content[i][2] = v
+					end
+					return
+				end
+				table.insert( content, {k, v} )
+			end
+		end,
+		__pairs = function( self )
+			local idx = 0
+			return function()
+				idx = idx + 1
+				return content[idx][1], content[idx][2]
+			end
+		end,
+	})
+end
+
 return function( fileName, apiDef, aliases )
 	local s = nil
 	local alreadyProcessed = {}
@@ -22,9 +55,12 @@ return function( fileName, apiDef, aliases )
 		return (aliases[t] or t) .. ('*'):rep( count )
 	end
 
-	print( 'return {' )
-	print( '  header = ' .. ('%q'):format( fileName ) .. ',' )
-	print( '  funcs = {' )
+	local api = {
+		header = ('%q'):format( fileName ),
+		funcs = {},
+		consts = {},
+	}
+
 	local bodyName, bodyArgs, comment
 	for line in io.lines( fileName ) do
 		-- Multiline support
@@ -50,7 +86,8 @@ return function( fileName, apiDef, aliases )
 			local funcName, returnType = parseType( bodyName )
 			if not alreadyProcessed[funcName] then
 				alreadyProcessed[funcName] = true
-				io.write( '    ' .. funcName .. ' = {' )
+				local func = { name = funcName }
+				--io.write( '    ' .. funcName .. ' = {' )
 				returnType = unalias( returnType )
 
 				local fields = {}
@@ -62,25 +99,31 @@ return function( fileName, apiDef, aliases )
 						i = i + 1
 						local argName, argType = parseType( arg )
 						argType = unalias( argType )
-						args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
+						args[i] = {argName, argType}
+						--args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
 					end
 					if i > 0 then
-						fields[#fields+1] = 'args = {' .. table.concat( args, ', ' ) .. '}'
+						func.args = args
+						--fields[#fields+1] = 'args = {' .. table.concat( args, ', ' ) .. '}'
 					end
 				end
 
 				if isVararg then
-					fields[#fields+1] = 'vararg = true'
+					func.vararg = true
+					--fields[#fields+1] = 'vararg = true'
 				end
 				if returnType ~= 'void' then
-					returnType = unalias( returnType )
-					fields[#fields+1] = 'returns = "' .. returnType .. '"'
+					--returnType = unalias( returnType )
+					func.returns = unalias( returnType )
+					--fields[#fields+1] = 'returns = "' .. returnType .. '"'
 				end
 				if comment ~= nil and comment ~= '' then
-					fields[#fields+1] = 'comment = ' .. ( '%q' ):format( comment )
+					func.comment = comment
+					--fields[#fields+1] = 'comment = ' .. ( '%q' ):format( comment )
 				end
-				io.write( table.concat( fields, ', ' ))
-				print( '},' )
+				--io.write( table.concat( fields, ', ' ))
+				--print( '},' )
+				api.funcs[#api.funcs+1] = func
 				s = nil
 			else
 				local newComment = line:match('//%s*(.+)')
@@ -92,16 +135,17 @@ return function( fileName, apiDef, aliases )
 			end
 		end
 	end
-	print( '  },' )
+	--print( '  },' )
 
-	print( '  consts = {' )
+	--print( '  consts = {' )
 	local isReadingEnum = false
 	for line in io.lines( fileName ) do
 		if not isReadingEnum and line:match( '^typedef enum ' ) then
 			local alreadyRead = false
 			for enumValue in (line:match( '%{%s*([%w%_%, ]+)%s*%}' ) or ''):gmatch( '([%w%_]+)' ) do
 				alreadyRead = true
-				print( '    "' .. enumValue .. '",' )
+				
+				--print( '    "' .. enumValue .. '",' )
 			end
 			isReadingEnum = not alreadyRead
 		elseif isReadingEnum then
@@ -111,7 +155,8 @@ return function( fileName, apiDef, aliases )
 				if not line:match( '^%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						print( '    {"' .. name .. '", "int"},' )
+						api.consts[#api.consts+1] = {name, "int"}
+						--print( '    {"' .. name .. '", "int"},' )
 					end
 				end
 			end
@@ -120,25 +165,28 @@ return function( fileName, apiDef, aliases )
 			if name then
 				value = value:gsub( 'f', '' )	
 				if tonumber( value ) == math.floor( tonumber( value )) then
-					print( '    {"' .. name .. '", "int"},' )
+					api.consts[#api.consts+1] = {name, "int"}
+					--print( '    {"' .. name .. '", "int"},' )
 				else
-					print( '    {"' .. name .. '", "float"},' )
+					api.consts[#api.consts+1] = {name, "float"}
+					--print( '    {"' .. name .. '", "float"},' )
 				end
 			end
 		end
 	end
-	print( '  },' )
+	--print( '  },' )
 
 	local function processStructArrayFields( trimmedFieldType, fieldLength )
 		local fieldType, starsCount = trimmedFieldType:gsub( '%*', '' )
 		if fieldLength == '' and starsCount > 0 and (fieldType == 'unsigned char' or fieldType == 'int' or fieldType == 'float' or fieldType == 'unsigned short' or fieldType == 'short' or fieldType:sub(1,1):match('%u')) then
-			return  fieldType .. ('*'):rep(starsCount-1), ', "DYNAMIC"'
+			return fieldType .. ('*'):rep(starsCount-1), ', "DYNAMIC"'
 		else
 			return trimmedFieldType, fieldLength
 		end
 	end
 
-	print( '  structs = {' )
+	--print( '  structs = {' )
+	local struct = {}
 	local isReadingStruct, isComment = false, false
 	for line in io.lines( fileName ) do
 		if line:match('%s+%/%*') then
@@ -150,14 +198,13 @@ return function( fileName, apiDef, aliases )
 				local isFinishStruct = line:match( '%s*}%s*([%w %*%,]+)%s*;' )
 				if isFinishStruct then
 					isReadingStruct = false
-					print( '    },' )
+					--print( '    },' )
 				else
 					local fieldType, fieldNames, fieldLength = line:match( '%s*([%w %*_]+)%s+([%w%, %*_]+)%s*%[([%w_]+)%];' )
 					if not fieldLength then
 						fieldType, fieldNames = line:match( '%s*([%w %*_]+)%s+([%w%, %*_]+)%s*;' )
-						fieldLength = ''
 					else
-						fieldLength = tonumber( fieldLength ) and (', %d'):format( fieldLength ) or (', "' .. fieldLength .. '"')
+						fieldLength = tonumber( fieldLength ) and tonumber( fieldLength ) or fieldLength
 					end
 					if fieldType and fieldNames then
 						for nameStars in fieldNames:gmatch( '([%w%*]+)' ) do
@@ -165,7 +212,11 @@ return function( fileName, apiDef, aliases )
 							local trimmedFieldType = (fieldType .. stars):gsub( '%s+%*', '*' )
 							fieldType, fieldLength = processStructArrayFields( trimmedFieldType, fieldLength )
 							fieldType = unalias( fieldType )
-							print( '      {"' .. name .. '", "' .. fieldType .. '"' .. fieldLength .. '},' )
+							local field = {name, fieldType}
+							if fieldLength then
+								field[#field+1] = fieldLength
+							end
+							struct.fields[#struct.fields+1] = field
 						end
 					end
 				end
@@ -173,11 +224,15 @@ return function( fileName, apiDef, aliases )
 				local T = line:match( 'typedef struct%s-(%w-)%s*{' )
 				if T then
 					isReadingStruct = true
-					print( '    ' .. T .. ' = {' )
+					struct = {
+						name = T,
+						fields = {}
+					}
 				end
 			end
 		end
 	end
-	print( '  }' )
-	print( '}' )
+	return api
+	--print( '  }' )
+	--print( '}' )
 end
