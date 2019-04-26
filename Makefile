@@ -32,7 +32,7 @@ bind:
 	lua -e 'require("bind")({libname = "raylib", prefix = "l_", includes = {"raylib/src/raylib.h"}}, require("raylib_defs"), require("raylib_custom"))' > raylib_bind.c
 	lua -e 'require("bind")({libname = "easings", prefix = "l_", includes = {"raylib/src/easings.h"}, defines = {"PI M_PI"}}, require("easings_defs"))' > easings_bind.c
 	lua -e 'require("bind")({libname = "raymath", prefix = "l_", includes = {"raylib/src/raymath.h"}, defines = {"RAYMATH_HEADER_ONLY"}}, require("raymath_defs"), require("raymath_custom"))' > raymath_bind.c
-	lua -e 'require("bind")({libname = "physac", prefix = "l_", includes = {"raylib/src/physac.h"}, defines = {"PHYSAC_IMPLEMENTATION"}}, require("physac_defs"), require("physac_custom"))' > physac_bind.c
+	lua -e 'require("bind")({libname = "physac", prefix = "l_", includes = {"raylib/src/raylib.h","raylib/src/physac.h",}, defines = {"PHYSAC_IMPLEMENTATION"}}, require("physac_defs"), require("physac_custom"))' > physac_bind.c
 
 so-linux:
 	cc -Wall -Wextra $(CFLAGS) easings_bind.c $(LUA_HEADERS) -llua$(LUA) -fPIC -shared -o easings.so

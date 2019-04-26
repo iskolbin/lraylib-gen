@@ -168,7 +168,7 @@ return function( fileName, apiDef, aliases )
 							if fieldLength then
 								field[#field+1] = fieldLength
 							end
-							struct[#struct+1] = field
+							struct.fields[#struct.fields+1] = field
 						end
 					end
 				end
@@ -176,7 +176,7 @@ return function( fileName, apiDef, aliases )
 				local structName = line:match( 'typedef struct%s-(%w-)%s*{' )
 				if structName then
 					isReadingStruct = true
-					struct = {}
+					struct = {fields = {}}
 					api.structs[structName] = struct
 				else
 					local structName, ref = line:match( 'typedef struct%s+(%w+)%s*%*-%s*(%w+)%s*;' )
@@ -188,7 +188,7 @@ return function( fileName, apiDef, aliases )
 		end
 	end
 	for refName, structName in pairs( api.refs ) do
-		if api.structs[refName] == nil then
+		if api.structs[structName] == nil then
 			api.refs[refName] = 'OPAQUE'
 		end
 	end

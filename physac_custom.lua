@@ -1,1 +1,7 @@
-return {}
+return {
+	structs = {
+		PhysicsManifoldData = {
+			pass = true
+		},
+	} 
+}

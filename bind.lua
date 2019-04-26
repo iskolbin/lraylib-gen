@@ -29,7 +29,7 @@ local function tolua( T, name, ref )
 			if ref == 'OPAQUE' then
 				return 'Opaque' .. T .. ' *userdata = lua_newuserdata(L, sizeof *userdata); userdata->data = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
 			else
-				return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+				return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. ref .. '")'
 			end
 		else
 			local Tref = T:match( '(%w+)%s*%*' )
@@ -50,7 +50,7 @@ local function fromlua( T, index, ref )
 	elseif T == 'const char *' or T == 'char *' or T == 'const char*' or T == 'char*' then
 		return 'luaL_checkstring(L, ' .. index .. ')'
 	elseif T == 'bool' then
-		return 'luaL_checknumber(L, ' .. index .. ')'
+		return 'lua_toboolean(L, ' .. index .. ')'
 	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
 		return 'luaX_checklightuserdata(L, ' .. index .. ', "?")'
 	else
@@ -58,7 +58,7 @@ local function fromlua( T, index, ref )
 			if ref == 'OPAQUE' then
 				return '((Opaque' .. T .. '*)luaL_checkudata(L, ' .. index .. ', "' .. T .. '"))->data'
 			else
-				return '(' .. T .. ')luaL_checkudata(L, ' .. index .. ', "' .. T .. '")'
+				return '(' .. T .. ')luaL_checkudata(L, ' .. index .. ', "' .. ref .. '")'
 			end
 		else
 			local Tref = T:match( '(%w+)%s*%*' )
@@ -89,16 +89,16 @@ return function( conf, defs, custom )
 
 	-- Primitive sturcts are structs with primitive fields only, Vector2 for instance
 	local isPrimitiveStruct = {}
-	for structName, structFields in pairs( defs.structs ) do
+	for structName, struct in pairs( defs.structs ) do
 		local primitive = true
-		for _, name_T_length in ipairs( structFields ) do
+		for _, name_T_length in ipairs( struct.fields ) do
 			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
 			if length or (not isInt[T] and not isNumber[T]) then
 				primitive = false
 			end
 		end
 		if primitive then
-			isPrimitiveStruct[structName] = structFields
+			isPrimitiveStruct[structName] = struct.fields
 		end
 	end
 	local prefix = conf.prefix
@@ -161,8 +161,8 @@ return function( conf, defs, custom )
 			print( '// ' .. f.comment )
 		end
 		print( 'static int ' .. prefix .. funcName .. '(lua_State *L) {' )
-		if f.blacklisted then
-			print( 'return luaL_error(L, "' .. funcName .. ' is blacklisted");' )
+		if f.pass then
+			print( 'return luaL_error(L, "' .. funcName .. ' is pass");' )
 		elseif f.src then
 			print( f.src )
 		else
@@ -203,8 +203,8 @@ return function( conf, defs, custom )
 				print( '// ' .. f.comment .. ' (unpacked version)' )
 			end
 			print( 'static int ' .. prefix .. funcNameU .. '(lua_State *L) {' )
-			if f.blacklisted then
-				print( 'return luaL_error(L, "' .. funcNameU .. ' is blacklisted");' )
+			if f.pass then
+				print( 'return luaL_error(L, "' .. funcNameU .. ' is pass");' )
 			elseif f.src then
 				print( f.src )
 			else
@@ -248,28 +248,30 @@ return function( conf, defs, custom )
 	end
 
 	-- Constructors for structs, for any structs zero constructor is exposed
-	for structName, structFields in pairs( defs.structs ) do
-		print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
-		print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
-		print( '  if (lua_gettop(L) == 1) {' )
-		print( '   ' .. structName .. ' temp = {};' )
-		print( '    *obj = temp;' )
-		-- for primitive structs init-all-fields consturctor is also possible
-		if isPrimitiveStruct[structName] then
-			print( '  } else {' )
-			for i, fieldName_Type in ipairs( structFields ) do
-				local fieldName, fieldType = fieldName_Type[1], fieldName_Type[2]
-				print( '    obj->' .. fieldName .. ' = ' .. fromlua( fieldType, i ) .. ';' )
+	for structName, struct in pairs( defs.structs ) do
+		if not struct.pass then
+			print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
+			print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
+			print( '  if (lua_gettop(L) == 1) {' )
+			print( '   ' .. structName .. ' temp = {};' )
+			print( '    *obj = temp;' )
+			-- for primitive structs init-all-fields consturctor is also possible
+			if isPrimitiveStruct[structName] then
+				print( '  } else {' )
+				for i, fieldName_Type in ipairs( struct.fields ) do
+					local fieldName, fieldType = fieldName_Type[1], fieldName_Type[2]
+					print( '    obj->' .. fieldName .. ' = ' .. fromlua( fieldType, i ) .. ';' )
+				end
 			end
+			print( '  }' )
+			print( '  return 1;' )
+			print( '}' )
+			print()
+			print( 'static int ' .. prefix .. structName .. '_meta(lua_State *L) {' )
+			print( '  luaL_getmetatable(L, "' .. structName .. '");' )
+			print( '  return 1;' )
+			print( '}' )
 		end
-		print( '  }' )
-		print( '  return 1;' )
-		print( '}' )
-		print()
-		print( 'static int ' .. prefix .. structName .. '_meta(lua_State *L) {' )
-		print( '  luaL_getmetatable(L, "' .. structName .. '");' )
-		print( '  return 1;' )
-		print( '}' )
 	end
 
 	print( 'static const luaL_Reg ' .. prefix .. 'functions[] = {' )
@@ -282,129 +284,93 @@ return function( conf, defs, custom )
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
 	end
 	-- Add constructors and metatable accessor for structs
-	for structName in pairs( defs.structs ) do
-		print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
-		print( '  {"' .. structName .. 'Meta", ' .. prefix .. structName .. '_meta},' )
+	for structName, struct in pairs( defs.structs ) do
+		if not struct.pass then
+			print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
+			print( '  {"' .. structName .. 'Meta", ' .. prefix .. structName .. '_meta},' )
+		end
 	end
 	print( '  {NULL, NULL}' )
 	print( '};' )
 	print()
 
 	-- Generate metatables for structs
-	for structName, structFields in pairs( defs.structs ) do
-		local primitiveFields = isPrimitiveStruct[structName]
-		if primitiveFields then
-			-- Primitive structs have proper equality check
-			print( 'static int ' .. prefix .. structName .. '__eq(lua_State *L) {' )
-			print( '  lua_getmetatable(L, 1); lua_getmetatable(L, 2);' )
-			print( '  if (lua_rawequal(L, -1, -2) == 0) {' )
-			print( '    lua_pushboolean(L, 0);' )
-			print( '  } else {' )
-			print( '    ' .. structName .. ' *self = lua_touserdata(L, 1);' )
-			print( '    ' .. structName .. ' *other = lua_touserdata(L, 2);' )
-			io.write(   '    lua_pushboolean(L, ' )
-			for i, fieldName_Type in ipairs( primitiveFields ) do
-				io.write( i > 1 and ' && ' or '', 'self->', fieldName_Type[1], ' == other->', fieldName_Type[1] )
-			end
-			print( ');' )
-			print( '  }' )
-			print( '  return 1;' )
-			print( '}' )
-			print()
-			-- Primitive structs have unpack method
-			print( 'static int ' .. prefix .. structName .. '_unpack(lua_State *L) {' )
-			print( '  ' .. structName .. ' *self = luaL_checkudata(L, 1, "' .. structName .. '");' )
-			for i, fieldName_Type in ipairs( primitiveFields ) do
-				local name, T = fieldName_Type[1], fieldName_Type[2]
-				print( '  ' .. tolua( T, 'self->' .. name, defs.refs[T] ) .. ';' )
-			end
-			print( '  return ' .. #primitiveFields .. ';' )
-			print( '}' )
-			print()
-		end
-
-		local function plurify( name )
-			if name:match( 'ices$' ) then
-				return name:sub( 1, -5 ) .. 'ixAt'
-			elseif name:match( 'es$' ) then
-				return name:sub( 1, -3 ) .. 'At'
-			elseif name:match( 's$' ) then
-				return name:sub( 1, -2 ) .. 'At'
-			else
-				return name .. 'At'
-			end
-		end
-
-		-- Generate setters and getters for structs as metamethods
-		-- For array-like fields generate indexed getter/setter with boundary checking
-		for _, name_T_length in ipairs( structFields ) do
-			local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
-			local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
-			local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
-			if length == "DYNAMIC" then
-				getIdx = getIdx .. '\n  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);'
-			elseif length then
-				getIdx = getIdx .. '\n  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');'
+	for structName, struct in pairs( defs.structs ) do
+		if not struct.pass then
+			local primitiveFields = isPrimitiveStruct[structName]
+			if primitiveFields then
+				-- Primitive structs have proper equality check
+				print( 'static int ' .. prefix .. structName .. '__eq(lua_State *L) {' )
+				print( '  lua_getmetatable(L, 1); lua_getmetatable(L, 2);' )
+				print( '  if (lua_rawequal(L, -1, -2) == 0) {' )
+				print( '    lua_pushboolean(L, 0);' )
+				print( '  } else {' )
+				print( '    ' .. structName .. ' *self = lua_touserdata(L, 1);' )
+				print( '    ' .. structName .. ' *other = lua_touserdata(L, 2);' )
+				io.write(   '    lua_pushboolean(L, ' )
+				for i, fieldName_Type in ipairs( primitiveFields ) do
+					io.write( i > 1 and ' && ' or '', 'self->', fieldName_Type[1], ' == other->', fieldName_Type[1] )
+				end
+				print( ');' )
+				print( '  }' )
+				print( '  return 1;' )
+				print( '}' )
+				print()
+				-- Primitive structs have unpack method
+				print( 'static int ' .. prefix .. structName .. '_unpack(lua_State *L) {' )
+				print( '  ' .. structName .. ' *self = luaL_checkudata(L, 1, "' .. structName .. '");' )
+				for i, fieldName_Type in ipairs( primitiveFields ) do
+					local name, T = fieldName_Type[1], fieldName_Type[2]
+					print( '  ' .. tolua( T, 'self->' .. name, defs.refs[T] ) .. ';' )
+				end
+				print( '  return ' .. #primitiveFields .. ';' )
+				print( '}' )
+				print()
 			end
 
-			local name_ = length and plurify( name ) or name
-			-- Setter
-			print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. '(lua_State *L) {' )
-			print( getObj )
-			if length then
-				print( getIdx )
-				print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3, defs.refs[T]) .. ';' )
-				print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
-			else
-				print( '  ' .. T .. ' ' .. name .. ' = ' .. fromlua( T, 2, defs.refs[T]) .. ';' )
-				print( '  obj->' .. name .. ' = ' .. name .. ';' )
+			local function plurify( name )
+				if name:match( 'ices$' ) then
+					return name:sub( 1, -5 ) .. 'ixAt'
+				elseif name:match( 'es$' ) then
+					return name:sub( 1, -3 ) .. 'At'
+				elseif name:match( 's$' ) then
+					return name:sub( 1, -2 ) .. 'At'
+				else
+					return name .. 'At'
+				end
 			end
-			print( '  lua_pop(L, 1);' )
-			print( '  return 1;' )
-			print( '}' )
-			print()
 
-			-- Getter
-			print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. '(lua_State *L) {' )
-			print( getObj )
-			if length then
-				print( getIdx )
-				print( '  ' .. T .. ' result = obj->' .. name .. '[idx];' )
-			else
-				print( '  ' .. T .. ' result = obj->' .. name .. ';' )
-			end
-			print( '  ' .. tolua( T, nil, defs.refs[T] ) .. ';' )
-			print( '  return 1;' )
-			print( '}' )
-			print()
+			-- Generate setters and getters for structs as metamethods
+			-- For array-like fields generate indexed getter/setter with boundary checking
+			for _, name_T_length in ipairs( struct.fields ) do
+				local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
+				local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
+				local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
+				if length == "DYNAMIC" then
+					getIdx = getIdx .. '\n  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);'
+				elseif length then
+					getIdx = getIdx .. '\n  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');'
+				end
 
-			if isPrimitiveStruct[T] then
-				-- Setter unpacked
-				print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. 'U(lua_State *L) {' )
+				local name_ = length and plurify( name ) or name
+				-- Setter
+				print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. '(lua_State *L) {' )
 				print( getObj )
-				local argsU = {}
 				if length then
 					print( getIdx )
-					local argsU = {}
-					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-						argsU[#argsU+1] = fromlua( name_type[2], i + 2, defs.refs[name_type[2]] )
-					end
-					print( '  ' .. T .. ' ' .. name .. 'v = {' .. table.concat( argsU, ', ' ) .. '};' )
+					print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3, defs.refs[T]) .. ';' )
 					print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
 				else
-					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-						argsU[#argsU+1] = fromlua( name_type[2], i + 1, defs.refs[name_type[2]] )
-					end
-					print( '  ' .. T .. ' ' .. name .. ' = {' .. table.concat( argsU, ', ' ) .. '};' )
+					print( '  ' .. T .. ' ' .. name .. ' = ' .. fromlua( T, 2, defs.refs[T]) .. ';' )
 					print( '  obj->' .. name .. ' = ' .. name .. ';' )
 				end
-				print( '  lua_pop(L, ' .. #argsU .. ');' )
+				print( '  lua_pop(L, 1);' )
 				print( '  return 1;' )
 				print( '}' )
 				print()
 
-				-- Getter unpacked
-				print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. 'U(lua_State *L) {' )
+				-- Getter
+				print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. '(lua_State *L) {' )
 				print( getObj )
 				if length then
 					print( getIdx )
@@ -412,51 +378,94 @@ return function( conf, defs, custom )
 				else
 					print( '  ' .. T .. ' result = obj->' .. name .. ';' )
 				end
-				local argsU = {}
-				for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-					argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1], defs.refs[name_type[2]] )
-				end
-				print( '  ' .. table.concat( argsU, ';' ) .. ';' )
-				print( '  return ' .. #argsU .. ';' )
+				print( '  ' .. tolua( T, nil, defs.refs[T] ) .. ';' )
+				print( '  return 1;' )
 				print( '}' )
 				print()
-			end
-		end
 
-		print( 'static const luaL_Reg ' .. prefix .. structName .. '[] = {' )
-		for _, name_T_length in ipairs( structFields ) do
-			local name = name_T_length[1]
-			local T = name_T_length[2]
-			local length = name_T_length[3]
-			name = length and plurify( name ) or name
-			local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
-			print( '  {"get' .. uppercasedName .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
-			print( '  {"set' .. uppercasedName .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
-			if isPrimitiveStruct[T] then
-				print( '  {"get' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_get_' .. name .. 'U},' )
-				print( '  {"set' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_set_' .. name .. 'U},' )
+				if isPrimitiveStruct[T] then
+					-- Setter unpacked
+					print( 'static int ' .. prefix .. structName .. '_set_' .. name_ .. 'U(lua_State *L) {' )
+					print( getObj )
+					local argsU = {}
+					if length then
+						print( getIdx )
+						local argsU = {}
+						for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+							argsU[#argsU+1] = fromlua( name_type[2], i + 2, defs.refs[name_type[2]] )
+						end
+						print( '  ' .. T .. ' ' .. name .. 'v = {' .. table.concat( argsU, ', ' ) .. '};' )
+						print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
+					else
+						for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+							argsU[#argsU+1] = fromlua( name_type[2], i + 1, defs.refs[name_type[2]] )
+						end
+						print( '  ' .. T .. ' ' .. name .. ' = {' .. table.concat( argsU, ', ' ) .. '};' )
+						print( '  obj->' .. name .. ' = ' .. name .. ';' )
+					end
+					print( '  lua_pop(L, ' .. #argsU .. ');' )
+					print( '  return 1;' )
+					print( '}' )
+					print()
+
+					-- Getter unpacked
+					print( 'static int ' .. prefix .. structName .. '_get_' .. name_ .. 'U(lua_State *L) {' )
+					print( getObj )
+					if length then
+						print( getIdx )
+						print( '  ' .. T .. ' result = obj->' .. name .. '[idx];' )
+					else
+						print( '  ' .. T .. ' result = obj->' .. name .. ';' )
+					end
+					local argsU = {}
+					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
+						argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1], defs.refs[name_type[2]] )
+					end
+					print( '  ' .. table.concat( argsU, ';' ) .. ';' )
+					print( '  return ' .. #argsU .. ';' )
+					print( '}' )
+					print()
+				end
 			end
+
+			print( 'static const luaL_Reg ' .. prefix .. structName .. '[] = {' )
+			for _, name_T_length in ipairs( struct.fields ) do
+				local name = name_T_length[1]
+				local T = name_T_length[2]
+				local length = name_T_length[3]
+				name = length and plurify( name ) or name
+				local uppercasedName = name:sub( 1, 1 ):upper() .. name:sub( 2 )
+				print( '  {"get' .. uppercasedName .. '", ' .. prefix .. structName .. '_get_' .. name .. '},' )
+				print( '  {"set' .. uppercasedName .. '", ' .. prefix .. structName .. '_set_' .. name .. '},' )
+				if isPrimitiveStruct[T] then
+					print( '  {"get' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_get_' .. name .. 'U},' )
+					print( '  {"set' .. uppercasedName .. 'U", ' .. prefix .. structName .. '_set_' .. name .. 'U},' )
+				end
+			end
+			if isPrimitiveStruct[structName] then
+				print( '  {"__eq", ' .. prefix .. structName .. '__eq},' )
+				print( '  {"unpack", ' .. prefix .. structName .. '_unpack},' )
+			end
+			print( '  {NULL, NULL}' )
+			print( '};' )
+			print()
+			print( 'static void ' .. prefix .. structName .. '_register(lua_State *L, const char *ref) {' )
+			print( '  luaL_newmetatable(L, ref ? ref : "' .. structName .. '");' )
+			print( '  lua_pushvalue(L, -1);' )
+			print( '  lua_setfield(L, -2, "__index");' )
+			print( '  luaL_setfuncs(L, ' .. prefix .. structName .. ', 0);' )
+			print( '  lua_pop(L, 1);' )
+			print( '}' )
+			print()
 		end
-		if isPrimitiveStruct[structName] then
-			print( '  {"__eq", ' .. prefix .. structName .. '__eq},' )
-			print( '  {"unpack", ' .. prefix .. structName .. '_unpack},' )
-		end
-		print( '  {NULL, NULL}' )
-		print( '};' )
-		print()
-		print( 'static void ' .. prefix .. structName .. '_register(lua_State *L, const char *ref) {' )
-		print( '  luaL_newmetatable(L, ref ? ref : "' .. structName .. '");' )
-  	print( '  lua_pushvalue(L, -1);' )
-  	print( '  lua_setfield(L, -2, "__index");' )
-  	print( '  luaL_setfuncs(L, ' .. prefix .. structName .. ', 0);' )
-		print( '  lua_pop(L, 1);' )
-		print( '}' )
-		print()
 	end
+
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
-	for structName in pairs( defs.structs ) do
-		print( '  ' .. prefix .. structName .. '_register(L, NULL);' )
+	for structName, struct in pairs( defs.structs ) do
+		if not struct.pass then
+			print( '  ' .. prefix .. structName .. '_register(L, NULL);' )
+		end
 	end
 	for refName, structName in pairs( defs.refs ) do
 		if defs.structs[structName] ~= nil then

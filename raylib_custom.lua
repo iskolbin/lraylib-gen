@@ -85,9 +85,9 @@ return {
   return count;
 		]]},
 
-		TextJoin = { returnsArgs = {{'count', 'int'}}, blacklisted = true },
-		TextSplit = { blacklisted = true },
-		TextAppend = { updatesArgs = {{'position', 'int'}}, blacklisted = true },
+		TextJoin = { returnsArgs = {{'count', 'int'}}, pass = true },
+		TextSplit = { pass = true },
+		TextAppend = { updatesArgs = {{'position', 'int'}}, pass = true },
 		TextReplace = { resultFinalizer = 'free((void*)result)' },
 		TextInsert = { resultFinalizer = 'free((void*)result)' },
 		DrawTextRecEx = { args = {
