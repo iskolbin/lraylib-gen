@@ -151,7 +151,6 @@ return function( fileName, apiDef, aliases )
 				local isFinishStruct = line:match( '%s*}%s*([%w %*%,]+)%s*;' )
 				if isFinishStruct then
 					isReadingStruct = false
-					--print( '    },' )
 				else
 					local fieldType, fieldNames, fieldLength = line:match( '%s*([%w %*_]+)%s+([%w%, %*_]+)%s*%[([%w_]+)%];' )
 					if not fieldLength then
@@ -186,6 +185,11 @@ return function( fileName, apiDef, aliases )
 					end
 				end
 			end
+		end
+	end
+	for refName, structName in pairs( api.refs ) do
+		if api.structs[refName] == nil then
+			api.refs[refName] = 'OPAQUE'
 		end
 	end
 	return api

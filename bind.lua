@@ -26,7 +26,11 @@ local function tolua( T, name, ref )
 		return 'lua_pushlightuserdata(L, ' .. name .. ')'
 	else
 		if ref then
-			return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+			if ref == 'OPAQUE' then
+				return 'Opaque' .. T .. ' *userdata = lua_newuserdata(L, sizeof *userdata); userdata->data = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+			else
+				return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+			end
 		else
 			local Tref = T:match( '(%w+)%s*%*' )
 			if Tref then
@@ -51,7 +55,11 @@ local function fromlua( T, index, ref )
 		return 'luaX_checklightuserdata(L, ' .. index .. ', "?")'
 	else
 		if ref then
-			return '(' .. T .. ')luaL_checkudata(L, ' .. index .. ', "' .. T .. '")'
+			if ref == 'OPAQUE' then
+				return '((Opaque' .. T .. '*)luaL_checkudata(L, ' .. index .. ', "' .. T .. '"))->data'
+			else
+				return '(' .. T .. ')luaL_checkudata(L, ' .. index .. ', "' .. T .. '")'
+			end
 		else
 			local Tref = T:match( '(%w+)%s*%*' )
 			if Tref then
@@ -119,7 +127,7 @@ return function( conf, defs, custom )
 	print( '#define lua_rawlen lua_objlen' )
 	print( '#endif' )
 	print()
-	print( 'static void * luaX_checklightuserdata(lua_State *L, int index, const char *funcName) {' )
+	print( 'static void *luaX_checklightuserdata(lua_State *L, int index, const char *funcName) {' )
 	print( '  if (lua_islightuserdata(L, index)) {' )
 	print( '    return lua_touserdata(L, index);' )
 	print( '  } else {' )
@@ -127,14 +135,11 @@ return function( conf, defs, custom )
 	print( '    return NULL;' )
 	print( '  }' )
 	print( '}' )
-	print()
-	print( 'static void ' .. prefix .. 'register_opaque(lua_State *L, const char *name) {' )
-	print( '  luaL_newmetatable(L, name);' )
-	print( '  lua_pushvalue(L, -1);' )
-	print( '  lua_setfield(L, -2, "__index");' )
-	print( '  luaL_setfuncs(L, NULL, 0);' )
-	print( '  lua_pop(L, 1);' )
-	print( '}' )
+	for refName, structName in pairs( defs.refs ) do
+		if structName == 'OPAQUE' then
+			print( 'typedef struct { void *data; } Opaque' .. refName .. ';' )
+		end
+	end
 	print()
 	local funcNames = {}
 	local unpackedFuncNames = {}
@@ -455,8 +460,6 @@ return function( conf, defs, custom )
 	end
 	for refName, structName in pairs( defs.refs ) do
 		if defs.structs[structName] ~= nil then
-			print( '  ' .. prefix .. 'register_opaque(L, "' .. refName .. '");' )
-		else
 			print( '  ' .. prefix .. structName .. '_register(L, "' .. refName .. '");' )
 		end
 	end
