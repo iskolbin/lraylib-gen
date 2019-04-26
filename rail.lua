@@ -300,7 +300,7 @@ for k, v in pairs( raylib ) do
 end
 
 local function updateImageMetaTable()
-	local mt = raylib.GetImageMetaTable()
+	local mt = raylib.GetImageMeta()
 	for k, v in pairs( rail.image ) do mt[k] = v end
 end
 

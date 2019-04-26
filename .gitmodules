@@ -4,3 +4,6 @@
 [submodule "isl_sleep"]
 	path = isl_sleep
 	url = git@github.com:iskolbin/isl_sleep
+[submodule "str"]
+	path = str
+	url = git@github.com:iskolbin/lstr

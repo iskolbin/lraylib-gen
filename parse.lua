@@ -11,38 +11,6 @@ local function parseType( body )
 	return name, type_
 end
 
-local function OrderedTable()
-	local content = {}
-	return setmetatable( {}, {
-		__index = function( self, k )
-			for i = 1, #content do
-				if content[i][1] == k then
-					return content[i][2]
-				end
-			end
-		end,
-		__newindex = function( self, k, v )
-			for i = 1, #content do
-				if content[i][1] == k then
-					if k == nil then
-						table.remove( content, i )
-					else
-						content[i][2] = v
-					end
-					return
-				end
-				table.insert( content, {k, v} )
-			end
-		end,
-		__pairs = function( self )
-			local idx = 0
-			return function()
-				idx = idx + 1
-				return content[idx][1], content[idx][2]
-			end
-		end,
-	})
-end
 
 return function( fileName, apiDef, aliases )
 	local s = nil
@@ -56,9 +24,11 @@ return function( fileName, apiDef, aliases )
 	end
 
 	local api = {
-		header = ('%q'):format( fileName ),
+		header = fileName,
 		funcs = {},
 		consts = {},
+		structs = {},
+		refs = {},
 	}
 
 	local bodyName, bodyArgs, comment
@@ -87,7 +57,6 @@ return function( fileName, apiDef, aliases )
 			if not alreadyProcessed[funcName] then
 				alreadyProcessed[funcName] = true
 				local func = { name = funcName }
-				--io.write( '    ' .. funcName .. ' = {' )
 				returnType = unalias( returnType )
 
 				local fields = {}
@@ -100,30 +69,22 @@ return function( fileName, apiDef, aliases )
 						local argName, argType = parseType( arg )
 						argType = unalias( argType )
 						args[i] = {argName, argType}
-						--args[i] = '{"' .. argName .. '", "' .. argType .. '"}'
 					end
 					if i > 0 then
 						func.args = args
-						--fields[#fields+1] = 'args = {' .. table.concat( args, ', ' ) .. '}'
 					end
 				end
 
 				if isVararg then
 					func.vararg = true
-					--fields[#fields+1] = 'vararg = true'
 				end
 				if returnType ~= 'void' then
-					--returnType = unalias( returnType )
 					func.returns = unalias( returnType )
-					--fields[#fields+1] = 'returns = "' .. returnType .. '"'
 				end
 				if comment ~= nil and comment ~= '' then
 					func.comment = comment
-					--fields[#fields+1] = 'comment = ' .. ( '%q' ):format( comment )
 				end
-				--io.write( table.concat( fields, ', ' ))
-				--print( '},' )
-				api.funcs[#api.funcs+1] = func
+				api.funcs[funcName] = func
 				s = nil
 			else
 				local newComment = line:match('//%s*(.+)')
@@ -135,17 +96,13 @@ return function( fileName, apiDef, aliases )
 			end
 		end
 	end
-	--print( '  },' )
 
-	--print( '  consts = {' )
 	local isReadingEnum = false
 	for line in io.lines( fileName ) do
 		if not isReadingEnum and line:match( '^typedef enum ' ) then
 			local alreadyRead = false
 			for enumValue in (line:match( '%{%s*([%w%_%, ]+)%s*%}' ) or ''):gmatch( '([%w%_]+)' ) do
 				alreadyRead = true
-				
-				--print( '    "' .. enumValue .. '",' )
 			end
 			isReadingEnum = not alreadyRead
 		elseif isReadingEnum then
@@ -156,7 +113,6 @@ return function( fileName, apiDef, aliases )
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
 						api.consts[#api.consts+1] = {name, "int"}
-						--print( '    {"' .. name .. '", "int"},' )
 					end
 				end
 			end
@@ -166,27 +122,24 @@ return function( fileName, apiDef, aliases )
 				value = value:gsub( 'f', '' )	
 				if tonumber( value ) == math.floor( tonumber( value )) then
 					api.consts[#api.consts+1] = {name, "int"}
-					--print( '    {"' .. name .. '", "int"},' )
 				else
 					api.consts[#api.consts+1] = {name, "float"}
-					--print( '    {"' .. name .. '", "float"},' )
 				end
 			end
 		end
 	end
-	--print( '  },' )
 
 	local function processStructArrayFields( trimmedFieldType, fieldLength )
 		local fieldType, starsCount = trimmedFieldType:gsub( '%*', '' )
-		if fieldLength == '' and starsCount > 0 and (fieldType == 'unsigned char' or fieldType == 'int' or fieldType == 'float' or fieldType == 'unsigned short' or fieldType == 'short' or fieldType:sub(1,1):match('%u')) then
-			return fieldType .. ('*'):rep(starsCount-1), ', "DYNAMIC"'
+		if not fieldLength and starsCount > 0 and (fieldType == 'unsigned char' or fieldType == 'int' or fieldType == 'float' or fieldType == 'unsigned short' or fieldType == 'short' or fieldType:sub(1,1):match('%u')) then
+			return fieldType .. ('*'):rep(starsCount-1), 'DYNAMIC'
 		else
 			return trimmedFieldType, fieldLength
 		end
 	end
 
-	--print( '  structs = {' )
 	local struct = {}
+	local refs = {}
 	local isReadingStruct, isComment = false, false
 	for line in io.lines( fileName ) do
 		if line:match('%s+%/%*') then
@@ -216,23 +169,24 @@ return function( fileName, apiDef, aliases )
 							if fieldLength then
 								field[#field+1] = fieldLength
 							end
-							struct.fields[#struct.fields+1] = field
+							struct[#struct+1] = field
 						end
 					end
 				end
 			else
-				local T = line:match( 'typedef struct%s-(%w-)%s*{' )
-				if T then
+				local structName = line:match( 'typedef struct%s-(%w-)%s*{' )
+				if structName then
 					isReadingStruct = true
-					struct = {
-						name = T,
-						fields = {}
-					}
+					struct = {}
+					api.structs[structName] = struct
+				else
+					local structName, ref = line:match( 'typedef struct%s+(%w+)%s*%*-%s*(%w+)%s*;' )
+					if structName and ref then
+						api.refs[ref] = structName
+					end
 				end
 			end
 		end
 	end
 	return api
-	--print( '  }' )
-	--print( '}' )
 end

@@ -12,7 +12,7 @@ local isNumber = {
 	['float'] = true, ['double'] = true,
 }
 
-local function tolua( T, name )
+local function tolua( T, name, ref )
 	name = name or 'result'
 	if isInt[T] then
 		return 'lua_pushinteger(L, ' .. name .. ')'
@@ -25,16 +25,20 @@ local function tolua( T, name )
 	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
 		return 'lua_pushlightuserdata(L, ' .. name .. ')'
 	else
-		local Tref = T:match( '(%w+)%s*%*' )
-		if Tref then
-			return Tref .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. Tref .. '")'
+		if ref then
+			return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
 		else
-			return T .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+			local Tref = T:match( '(%w+)%s*%*' )
+			if Tref then
+				return Tref .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. Tref .. '")'
+			else
+				return T .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+			end
 		end
 	end
 end
 
-local function fromlua( T, index, primitiveFields )
+local function fromlua( T, index, ref )
 	if isInt[T] then
 		return 'luaL_checkinteger(L, ' .. index .. ')'
 	elseif isNumber[T] then
@@ -46,11 +50,15 @@ local function fromlua( T, index, primitiveFields )
 	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
 		return 'luaX_checklightuserdata(L, ' .. index .. ', "?")'
 	else
-		local Tref = T:match( '(%w+)%s*%*' )
-		if Tref then
-			return '(' .. Tref .. '*)luaL_checkudata(L, ' .. index .. ', "' .. Tref .. '")'
+		if ref then
+			return '(' .. T .. ')luaL_checkudata(L, ' .. index .. ', "' .. T .. '")'
 		else
-			return '(*(' .. T .. '*)luaL_checkudata(L, ' .. index .. ', "' .. T .. '"))'
+			local Tref = T:match( '(%w+)%s*%*' )
+			if Tref then
+				return '(' .. Tref .. '*)luaL_checkudata(L, ' .. index .. ', "' .. Tref .. '")'
+			else
+				return '(*(' .. T .. '*)luaL_checkudata(L, ' .. index .. ', "' .. T .. '"))'
+			end
 		end
 	end
 end
@@ -120,8 +128,26 @@ return function( conf, defs, custom )
 	print( '  }' )
 	print( '}' )
 	print()
+	print( 'static void ' .. prefix .. 'register_opaque(lua_State *L, const char *name) {' )
+	print( '  luaL_newmetatable(L, name);' )
+	print( '  lua_pushvalue(L, -1);' )
+	print( '  lua_setfield(L, -2, "__index");' )
+	print( '  luaL_setfuncs(L, NULL, 0);' )
+	print( '  lua_pop(L, 1);' )
+	print( '}' )
+	print()
 	local funcNames = {}
 	local unpackedFuncNames = {}
+	local refs = conf.refs
+
+	local function deref( T )
+		if refs[T] then
+			return refs[T] .. '*'
+		else
+			return T
+		end
+	end
+	
 	for funcName, f in pairs( defs.funcs ) do
 		local returns = f.returns
 		local hasPrimitives = isPrimitiveStruct[returns]
@@ -145,12 +171,12 @@ return function( conf, defs, custom )
 					hasPrimitives = true
 				end
 				argNames[i] = argName
-				local argConverter = fromlua( argType, i )
+				local argConverter = fromlua( argType, i, defs.refs[argType] )
 				print( '  ' .. argType .. ' ' .. argName .. ' = ' .. argConverter .. ';' )
 			end
 			if returns then
 				print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
-				local returnConverter, returnCount = tolua( returns, nil, isPrimitiveStruct[returns] )
+				local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
 				print( '  ' .. returnConverter .. ';' )
 				if f.resultFinalizer then
 					print( '  ' .. f.resultFinalizer .. ';' )
@@ -189,18 +215,18 @@ return function( conf, defs, custom )
 					if isPrimitiveStruct[argType] then
 						local argsU = {}
 						for i, name_type in ipairs( isPrimitiveStruct[argType] ) do
-							argsU[#argsU+1] = fromlua( name_type[2], index + i - 1 )
+							argsU[#argsU+1] = fromlua( name_type[2], index + i - 1, defs.refs[name_type[2]] )
 						end
 						print( '  ' .. argType .. ' ' .. argName .. ' = {' .. table.concat( argsU, ',' ) .. '};' )
 						index = index + #isPrimitiveStruct[argType] - 1
 					else
-						local argConverter = fromlua( argType, index )
+						local argConverter = fromlua( argType, index, defs.refs[argType] )
 						print( '  ' .. argType .. ' ' .. argName .. ' = ' .. argConverter .. ';' )
 					end
 				end
 				if returns then
 					print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
-					local returnConverter, returnCount = tolua( returns )
+					local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
 					print( '  ' .. returnConverter .. ';' )
 					if f.resultFinalizer then
 						print( '  ' .. f.resultFinalizer .. ';' )
@@ -284,7 +310,8 @@ return function( conf, defs, custom )
 			print( 'static int ' .. prefix .. structName .. '_unpack(lua_State *L) {' )
 			print( '  ' .. structName .. ' *self = luaL_checkudata(L, 1, "' .. structName .. '");' )
 			for i, fieldName_Type in ipairs( primitiveFields ) do
-				print( '  ' .. tolua( fieldName_Type[2], 'self->' .. fieldName_Type[1] ) .. ';' )
+				local name, T = fieldName_Type[1], fieldName_Type[2]
+				print( '  ' .. tolua( T, 'self->' .. name, defs.refs[T] ) .. ';' )
 			end
 			print( '  return ' .. #primitiveFields .. ';' )
 			print( '}' )
@@ -321,10 +348,10 @@ return function( conf, defs, custom )
 			print( getObj )
 			if length then
 				print( getIdx )
-				print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3 ) .. ';' )
+				print( '  ' .. T .. ' ' .. name .. 'v = ' .. fromlua( T, 3, defs.refs[T]) .. ';' )
 				print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
 			else
-				print( '  ' .. T .. ' ' .. name .. ' = ' .. fromlua( T, 2 ) .. ';' )
+				print( '  ' .. T .. ' ' .. name .. ' = ' .. fromlua( T, 2, defs.refs[T]) .. ';' )
 				print( '  obj->' .. name .. ' = ' .. name .. ';' )
 			end
 			print( '  lua_pop(L, 1);' )
@@ -341,7 +368,7 @@ return function( conf, defs, custom )
 			else
 				print( '  ' .. T .. ' result = obj->' .. name .. ';' )
 			end
-			print( '  ' .. tolua( T ) .. ';' )
+			print( '  ' .. tolua( T, nil, defs.refs[T] ) .. ';' )
 			print( '  return 1;' )
 			print( '}' )
 			print()
@@ -355,13 +382,13 @@ return function( conf, defs, custom )
 					print( getIdx )
 					local argsU = {}
 					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-						argsU[#argsU+1] = fromlua( name_type[2], i + 2 )
+						argsU[#argsU+1] = fromlua( name_type[2], i + 2, defs.refs[name_type[2]] )
 					end
 					print( '  ' .. T .. ' ' .. name .. 'v = {' .. table.concat( argsU, ', ' ) .. '};' )
 					print( '  obj->' .. name .. '[idx] = ' .. name .. 'v;' )
 				else
 					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-						argsU[#argsU+1] = fromlua( name_type[2], i + 1 )
+						argsU[#argsU+1] = fromlua( name_type[2], i + 1, defs.refs[name_type[2]] )
 					end
 					print( '  ' .. T .. ' ' .. name .. ' = {' .. table.concat( argsU, ', ' ) .. '};' )
 					print( '  obj->' .. name .. ' = ' .. name .. ';' )
@@ -382,7 +409,7 @@ return function( conf, defs, custom )
 				end
 				local argsU = {}
 				for i, name_type in ipairs( isPrimitiveStruct[T] ) do
-					argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1] )
+					argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1], defs.refs[name_type[2]] )
 				end
 				print( '  ' .. table.concat( argsU, ';' ) .. ';' )
 				print( '  return ' .. #argsU .. ';' )
@@ -412,8 +439,8 @@ return function( conf, defs, custom )
 		print( '  {NULL, NULL}' )
 		print( '};' )
 		print()
-		print( 'static void ' .. prefix .. structName .. '_register(lua_State *L) {' )
-		print( '  luaL_newmetatable(L, "' .. structName .. '");' )
+		print( 'static void ' .. prefix .. structName .. '_register(lua_State *L, const char *ref) {' )
+		print( '  luaL_newmetatable(L, ref ? ref : "' .. structName .. '");' )
   	print( '  lua_pushvalue(L, -1);' )
   	print( '  lua_setfield(L, -2, "__index");' )
   	print( '  luaL_setfuncs(L, ' .. prefix .. structName .. ', 0);' )
@@ -424,7 +451,14 @@ return function( conf, defs, custom )
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
 	for structName in pairs( defs.structs ) do
-		print( '  ' .. prefix .. structName .. '_register(L);' )
+		print( '  ' .. prefix .. structName .. '_register(L, NULL);' )
+	end
+	for refName, structName in pairs( defs.refs ) do
+		if defs.structs[structName] ~= nil then
+			print( '  ' .. prefix .. 'register_opaque(L, "' .. refName .. '");' )
+		else
+			print( '  ' .. prefix .. structName .. '_register(L, "' .. refName .. '");' )
+		end
 	end
 	for _, const in ipairs( defs.consts ) do
 		local name, type_ = const[1], const[2]
