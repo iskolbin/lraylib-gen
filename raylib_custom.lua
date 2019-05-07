@@ -42,37 +42,72 @@ return {
   }
   return count;]]},
 
-		DrawPolyEx = { src = [[
-  int len = lua_rawlen(L, 1) / 2;
+		DrawTriangleFan = { src = [[
+  int len = lua_rawlen(L, 1);
   Color *color = luaL_checkudata(L, 2, "Color");
-  Vector2 *points = malloc(len * sizeof * points);
-  for (int i = 0; i < len; i += 2)
+  if (len < 6) return 0;
+  if (rlCheckBufferLimit((len/2 - 2)*4)) rlglDraw();
+#if defined(SUPPORT_FONT_TEXTURE)
+  Texture2D texShapes = GetFontDefault().texture;
+  Rectangle rec = GetFontDefault().chars[95].rec;
+  Rectangle recTexShapes = (Rectangle){ rec.x + 1, rec.y + 1, rec.width - 2, rec.height - 2 };
+#else
+  Texture2D texShapes = GetTextureDefault();
+  Rectangle recTexShapes = (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f };
+#endif
+  rlEnableTexture(texShapes.id);
+  rlBegin(RL_QUADS);
   {
-    lua_rawgeti(L, 1, i);
-		points[i].x = luaL_checknumber(L, -1);
-    lua_rawgeti(L, 2, i);
-		points[i].y = luaL_checknumber(L, -1);
+    float x0, y0, x1, y1, x2, y2;
+    rlColor4ub(color->r, color->g, color->b, color->a);
+    lua_rawgeti(L, 1, 1); x0 = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 1, 2); y0 = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 1, 3); x1 = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 1, 4); y1 = luaL_checknumber(L, -1);
+    for (int i = 5; i <= len; i += 2)
+    {
+      lua_rawgeti(L, 1, i); x2 = luaL_checknumber(L, -1);
+      lua_rawgeti(L, 1, i+1); y2 = luaL_checknumber(L, -1);
+      rlTexCoord2f(recTexShapes.x/texShapes.width, recTexShapes.y/texShapes.height);
+      rlVertex2f(x0, y0);
+
+      rlTexCoord2f(recTexShapes.x/texShapes.width, (recTexShapes.y + recTexShapes.height)/texShapes.height);
+      rlVertex2f(x1, y1);
+
+      rlTexCoord2f((recTexShapes.x + recTexShapes.width)/texShapes.width, (recTexShapes.y + recTexShapes.height)/texShapes.height);
+      rlVertex2f(x2, y2);
+
+      rlTexCoord2f((recTexShapes.x + recTexShapes.width)/texShapes.width, recTexShapes.y/texShapes.height);
+      rlVertex2f(x2, y2);
+      x1 = x2; y1 = y2;
+    }
+    rlEnd();
+    rlDisableTexture();
   }
-  DrawPolyEx(points, len, *color);
-	free(points);
-	return 0;
-		]]},
+  return 0;]]},
 	
-		DrawPolyExLines = { src = [[
-  int len = lua_rawlen(L, 1) / 2;
+		DrawLineStrip = { src = [[
+  int len = lua_rawlen(L, 1);
   Color *color = luaL_checkudata(L, 2, "Color");
-  Vector2 *points = malloc(len * sizeof * points);
-  for (int i = 0; i < len; i += 2)
+  if (len < 4) return 0;
+  if (rlCheckBufferLimit(len/2)) rlglDraw();
+  rlBegin(RL_LINES);
   {
-    lua_rawgeti(L, 1, i);
-		points[i].x = luaL_checknumber(L, -1);
-    lua_rawgeti(L, 2, i);
-		points[i].y = luaL_checknumber(L, -1);
+    float x0, y0, x1, y1;
+    rlColor4ub(color->r, color->g, color->b, color->a);
+    lua_rawgeti(L, 1, 1); x0 = luaL_checknumber(L, -1);
+    lua_rawgeti(L, 1, 2); y0 = luaL_checknumber(L, -1);
+    for (int i = 3; i <= len; i += 2)
+    {
+      lua_rawgeti(L, 1, i); x1 = luaL_checknumber(L, -1);
+      lua_rawgeti(L, 1, i+1); y1 = luaL_checknumber(L, -1);
+      rlVertex2f(x0, y0);
+      rlVertex2f(x1, y1);
+      x0 = x1; y0 = y1;
+    }
   }
-  DrawPolyExLines(points, len, *color);
-	free(points);
-	return 0;
-		]]},
+  rlEnd();
+	return 0;]]},
 	
 		LoadMaterials = { src = [[
   int count;
@@ -82,8 +117,7 @@ return {
     *material = materials[i];
     luaL_setmetatable(L, "Material");
   }
-  return count;
-		]]},
+  return count;]]},
 
 		TextJoin = { returnsArgs = {{'count', 'int'}}, pass = true },
 		TextSplit = { pass = true },
