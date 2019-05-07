@@ -474,7 +474,16 @@ return function( conf, defs, custom )
 	end
 	for _, const in ipairs( defs.consts ) do
 		local name, type_ = const[1], const[2]
-		print( '  lua_push' .. (type_ == 'int' and 'integer' or 'number') .. '(L, ' .. name .. '); lua_setfield(L, -2, "' .. name .. '");' ) 
+		if type_ == 'integer' then
+			print( '  lua_pushinteger(L, ' .. name .. ');' )
+		elseif type_ == 'number' then
+			print( '  lua_pushnumber(L, ' .. name .. ');' )
+		elseif type_ == 'Color' then
+			print( '  *((Color *)lua_newuserdata(L, sizeof(Color))) = ' .. name .. '; luaL_setmetatable(L, "Color");' )
+		else
+			print( '  lua_pushnil(L);' )
+		end
+		print( '  lua_setfield(L, -2, "' .. name .. '");' )
 	end
 	print( '  return 1;' )
 	print( '}' )

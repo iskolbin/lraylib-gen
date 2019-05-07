@@ -112,7 +112,7 @@ return function( fileName, apiDef, aliases )
 				if not line:match( '^%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						api.consts[#api.consts+1] = {name, "int"}
+						api.consts[#api.consts+1] = {name, "integer"}
 					end
 				end
 			end
@@ -121,9 +121,14 @@ return function( fileName, apiDef, aliases )
 			if name then
 				value = value:gsub( 'f', '' )	
 				if tonumber( value ) == math.floor( tonumber( value )) then
-					api.consts[#api.consts+1] = {name, "int"}
+					api.consts[#api.consts+1] = {name, "integer"}
 				else
-					api.consts[#api.consts+1] = {name, "float"}
+					api.consts[#api.consts+1] = {name, "number"}
+				end
+			else
+				name, value = line:match( '#define%s+([%u_]+)%s+CLITERAL' )
+				if name then
+					api.consts[#api.consts+1] = {name, "Color"}
 				end
 			end
 		end
