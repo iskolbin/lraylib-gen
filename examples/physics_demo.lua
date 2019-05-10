@@ -49,8 +49,11 @@ while not raylib.WindowShouldClose() do
 	local bodiesCount = physac.GetPhysicsBodiesCount()
 	for i = bodiesCount - 1, 0, -1 do
 		local body = physac.GetPhysicsBody( i )
+		print( i, body )
 		if body:getPosition():getY() > screenHeight*2 then
+			print( '>>' )
 			physac.DestroyPhysicsBody(body);
+			print( '<<' )
 		end
 	end
 

@@ -25,7 +25,7 @@ return {
   Ray ray = (*(Ray*)luaL_checkudata(L, 1, "Ray"));
   Vector3 spherePosition = (*(Vector3*)luaL_checkudata(L, 2, "Vector3"));
   float sphereRadius = luaL_checknumber(L, 3);
-  Vector3 *collisionPoint = lua_newuserdata(L, sizeof *collisionPoint);
+  Vector3 *collisionPoint = lua_newuserdata(L, sizeof *collisionPoint); luaL_setmetatable(L, "Vector3");
 	if (CheckCollisionRaySphereEx(ray, spherePosition, sphereRadius, collisionPoint)) {
     return 1;
 	} else {
@@ -129,5 +129,74 @@ return {
 			{"spacing", "float"}, {"wordWrap", "bool"}, {"tint","Color"}, {"selectStart", "int"}, 
 			{"selectLength", "int"}, {"selectText", "Color"}, {"selectBack", "Color"}},
 		},
+
+		SetShaderValueFloat = {
+      name = 'SetShaderValueFloat',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "float"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_FLOAT"}},
+		},
+
+		SetShaderValueVec2 = {
+      name = 'SetShaderValueVec2',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "Vector2"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_VEC2"}},
+		},
+
+		SetShaderValueVec3 = {
+      name = 'SetShaderValueVec3',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "Vector3"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_VEC3"}},
+		},
+
+		SetShaderValueVec4 = {
+      name = 'SetShaderValueVec4',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "Vector4"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_VEC4"}},
+		},
+
+		SetShaderValueInt = {
+      name = 'SetShaderValueInt',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "int"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_INT"}},
+		},
+
+		SetShaderValueIVec2 = {
+      name = 'SetShaderValueIVec2',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "IVector2"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_IVEC2"}},
+		},
+
+		SetShaderValueIVec3 = {
+      name = 'SetShaderValueIVec3',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "IVector3"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_IVEC3"}},
+		},
+
+		SetShaderValueIVec4 = {
+      name = 'SetShaderValueIVec4',
+      args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "IVector4"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_IVEC4"}},
+		},
+
+		SetShaderValueSampler2D = {
+      name = 'SetShaderValueSampler2D',
+			args = {{"shader", "Shader"}, {"uniformLoc", "int"}, {"value", "int"}},
+			wrap = { name = "SetShaderValue", args = {"shader", "uniformLoc", "&value", "UNIFORM_SAMPLER2D"}},
+		},
+	},
+
+	structs = {
+    IVector2 = {
+			typedef = true,
+      fields = {{"x", "int"}, {"y", "int"}}
+    },
+    IVector3 = {
+			typedef = true,
+      fields = {{"x", "int"}, {"y", "int"}, {"z", "int"}}
+    },
+    IVector4 = {
+			typedef = true,
+      fields = {{"x", "int"}, {"y", "int"}, {"z", "int"}, {"w", "int"}}
+    },
 	},
 }

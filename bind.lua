@@ -15,28 +15,29 @@ local isNumber = {
 local function tolua( T, name, ref )
 	name = name or 'result'
 	if isInt[T] then
-		return 'lua_pushinteger(L, ' .. name .. ')'
+		return 'lua_pushinteger(L, ' .. name .. ');'
 	elseif isNumber[T] then
-		return 'lua_pushnumber(L, ' .. name .. ')'
+		return 'lua_pushnumber(L, ' .. name .. ');'
 	elseif T == 'const char *' or T == 'char *'  or T == 'const char*' or T == 'char*' then
-		return 'lua_pushstring(L, ' .. name .. ')'
+		return 'lua_pushstring(L, ' .. name .. ');'
 	elseif T == 'bool' then
-		return 'lua_pushboolean(L, ' .. name .. ')'
+		return 'lua_pushboolean(L, ' .. name .. ');'
 	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
-		return 'lua_pushlightuserdata(L, ' .. name .. ')'
+		return 'if (' .. name .. ' == NULL) lua_pushnil(L); else lua_pushlightuserdata(L, ' .. name .. ');'
 	else
+		local nilcheck = 'if (' .. name .. ' == NULL) lua_pushnil(L); else '
 		if ref then
 			if ref == 'OPAQUE' then
-				return 'Opaque' .. T .. ' *userdata = lua_newuserdata(L, sizeof *userdata); userdata->data = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+				return nilcheck .. '{ Opaque' .. T .. ' *userdata = lua_newuserdata(L, sizeof *userdata); userdata->data = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '");}'
 			else
-				return T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. ref .. '")'
+				return nilcheck .. '{ ' .. T .. ' userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. ref .. '");}'
 			end
 		else
 			local Tref = T:match( '(%w+)%s*%*' )
 			if Tref then
-				return Tref .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. Tref .. '")'
+				return nilcheck .. '{ ' .. Tref .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *' .. name .. '; luaL_setmetatable(L, "' .. Tref .. '");}'
 			else
-				return T .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '")'
+				return T .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = ' .. name .. '; luaL_setmetatable(L, "' .. T .. '");'
 			end
 		end
 	end
@@ -141,6 +142,23 @@ return function( conf, defs, custom )
 		end
 	end
 	print()
+	for structName, struct in pairs( defs.structs ) do
+		if not struct.pass and struct.typedef then
+			print( 'typedef struct ' .. structName .. '{' )
+			for _, field in ipairs( struct.fields ) do
+				if field[3] then
+					if field[3] == '?' then
+						print( '  ' .. field[2] .. ' *' .. field[1] .. ';' )
+					else
+						print( '  ' .. field[2] .. ' ' .. field[1] .. '[' .. field[3] .. '];' )
+					end
+				else
+					print( '  ' .. field[2] .. ' ' .. field[1] .. ';' )
+				end
+			end
+			print( '} ' .. structName .. ';' )
+		end
+	end
 	local funcNames = {}
 	local unpackedFuncNames = {}
 	local refs = conf.refs
@@ -180,15 +198,23 @@ return function( conf, defs, custom )
 				print( '  ' .. argType .. ' ' .. argName .. ' = ' .. argConverter .. ';' )
 			end
 			if returns then
-				print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+				if f.wrap then
+					print( '  ' .. returns .. ' result = ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
+				else
+					print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+				end
 				local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
-				print( '  ' .. returnConverter .. ';' )
+				print( '  ' .. returnConverter )
 				if f.resultFinalizer then
 					print( '  ' .. f.resultFinalizer .. ';' )
 				end
 				print( '  return ' .. (returnCount or 1) .. ';' )
 			else
-				print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+				if f.wrap then
+					print( '  ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
+				else
+					print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+				end
 				print( '  return 0;' )
 			end
 		end
@@ -230,15 +256,23 @@ return function( conf, defs, custom )
 					end
 				end
 				if returns then
-					print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					if f.wrap then
+						print( '  ' .. returns .. ' result = ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
+					else
+						print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					end
 					local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
-					print( '  ' .. returnConverter .. ';' )
+					print( '  ' .. returnConverter )
 					if f.resultFinalizer then
 						print( '  ' .. f.resultFinalizer .. ';' )
 					end
 					print( '  return ' .. (returnCount or 1) .. ';' )
 				else
-					print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					if f.wrap then
+						print( '  ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
+					else
+						print( '  ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
+					end
 					print( '  return 0;' )
 				end
 			end
@@ -321,7 +355,7 @@ return function( conf, defs, custom )
 				print( '  ' .. structName .. ' *self = luaL_checkudata(L, 1, "' .. structName .. '");' )
 				for i, fieldName_Type in ipairs( primitiveFields ) do
 					local name, T = fieldName_Type[1], fieldName_Type[2]
-					print( '  ' .. tolua( T, 'self->' .. name, defs.refs[T] ) .. ';' )
+					print( '  ' .. tolua( T, 'self->' .. name, defs.refs[T] ))
 				end
 				print( '  return ' .. #primitiveFields .. ';' )
 				print( '}' )
@@ -343,13 +377,17 @@ return function( conf, defs, custom )
 			-- Generate setters and getters for structs as metamethods
 			-- For array-like fields generate indexed getter/setter with boundary checking
 			for _, name_T_length in ipairs( struct.fields ) do
-				local name, T, length = name_T_length[1], name_T_length[2], name_T_length[3]
+				local name, T, length, lengthField = name_T_length[1], name_T_length[2], name_T_length[3], name_T_length[4]
 				local getObj = '  ' .. structName .. '* obj = ' .. 'luaL_checkudata(L, 1, "' .. structName .. '");'
 				local getIdx = '  int idx = luaL_checkinteger(L, 2);' 
-				if length == "DYNAMIC" then
-					getIdx = getIdx .. '\n  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);'
+				if length == "?" then
+					if lengthField then
+						getIdx = getIdx .. '\n  if (idx < 0 || idx >= obj->' .. lengthField .. ') return luaL_error(L, "Index out of bounds %d", idx);'
+					else
+						getIdx = getIdx .. '\n  if (idx < 0) return luaL_error(L, "Index out of bounds %d", idx);'
+					end
 				elseif length then
-					getIdx = getIdx .. '\n  if (idx < 0 || idx > ' .. length .. ') return luaL_error(L, "Index out of bounds %d (max %d)", idx, ' .. length .. ');'
+					getIdx = getIdx .. '\n  if (idx < 0 || idx >= ' .. length .. ') return luaL_error(L, "Index out of bounds %d", idx, ' .. length .. ');'
 				end
 
 				local name_ = length and plurify( name ) or name
@@ -378,7 +416,7 @@ return function( conf, defs, custom )
 				else
 					print( '  ' .. T .. ' result = obj->' .. name .. ';' )
 				end
-				print( '  ' .. tolua( T, nil, defs.refs[T] ) .. ';' )
+				print( '  ' .. tolua( T, nil, defs.refs[T] ))
 				print( '  return 1;' )
 				print( '}' )
 				print()
@@ -421,7 +459,7 @@ return function( conf, defs, custom )
 					for i, name_type in ipairs( isPrimitiveStruct[T] ) do
 						argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1], defs.refs[name_type[2]] )
 					end
-					print( '  ' .. table.concat( argsU, ';' ) .. ';' )
+					print( '  ' .. table.concat( argsU ))
 					print( '  return ' .. #argsU .. ';' )
 					print( '}' )
 					print()

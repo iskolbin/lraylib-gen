@@ -137,7 +137,7 @@ return function( fileName, apiDef, aliases )
 	local function processStructArrayFields( trimmedFieldType, fieldLength )
 		local fieldType, starsCount = trimmedFieldType:gsub( '%*', '' )
 		if not fieldLength and starsCount > 0 and (fieldType == 'unsigned char' or fieldType == 'int' or fieldType == 'float' or fieldType == 'unsigned short' or fieldType == 'short' or fieldType:sub(1,1):match('%u')) then
-			return fieldType .. ('*'):rep(starsCount-1), 'DYNAMIC'
+			return fieldType .. ('*'):rep(starsCount-1), '?'
 		else
 			return trimmedFieldType, fieldLength
 		end
@@ -195,6 +195,23 @@ return function( fileName, apiDef, aliases )
 	for refName, structName in pairs( api.refs ) do
 		if api.structs[structName] == nil then
 			api.refs[refName] = 'OPAQUE'
+		end
+	end
+
+	for structName, struct in pairs( api.structs ) do
+		local fieldsMap, fieldCounts = {}, {}
+		for _, field in ipairs( struct.fields ) do
+			fieldsMap[field[1]] = field
+			if field[1]:sub( -5 ) == 'Count' then
+				fieldCounts[field[1]] = true
+			end
+		end
+		for nameCount in pairs( fieldCounts ) do
+			local singular = nameCount:sub( 1, -6 )
+			local field = fieldsMap[singular] or fieldsMap[singular .. 's'] or fieldsMap[singular .. 'es'] or fieldsMap[singular:sub( 1, -3 ) .. 'ices']
+			if field then
+				field[4] = nameCount
+			end
 		end
 	end
 	return api
