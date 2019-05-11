@@ -206,12 +206,12 @@ return function( conf, defs, custom )
 				else
 					print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
 				end
-				local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
+				local returnConverter = tolua( returns, nil, defs.refs[returns] )
 				print( '  ' .. returnConverter )
 				if f.resultFinalizer then
 					print( '  ' .. f.resultFinalizer .. ';' )
 				end
-				print( '  return ' .. (returnCount or 1) .. ';' )
+				print( '  return 1;' )
 			else
 				if f.wrap then
 					print( '  ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
@@ -264,12 +264,21 @@ return function( conf, defs, custom )
 					else
 						print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
 					end
-					local returnConverter, returnCount = tolua( returns, nil, defs.refs[returns] )
+					local returnConverter = tolua( returns, nil, defs.refs[returns] )
 					print( '  ' .. returnConverter )
 					if f.resultFinalizer then
 						print( '  ' .. f.resultFinalizer .. ';' )
 					end
-					print( '  return ' .. (returnCount or 1) .. ';' )
+					if isPrimitiveStruct[returns] then
+						local argsU = {}
+						for i, name_type in ipairs( isPrimitiveStruct[returns] ) do
+							argsU[#argsU+1] = tolua( name_type[2], 'result.' .. name_type[1], defs.refs[name_type[2]] )
+						end
+						print( '  ' .. table.concat( argsU ))
+						print( '  return ' .. #argsU .. ';' )
+					else
+						print( '  return 1;' )
+					end
 				else
 					if f.wrap then
 						print( '  ' .. f.wrap.name .. '(' .. table.concat( f.wrap.args or {}, ', ' ) .. ');' )
