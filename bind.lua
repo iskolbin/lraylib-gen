@@ -18,11 +18,11 @@ local function tolua( T, name, ref )
 		return 'lua_pushinteger(L, ' .. name .. ');'
 	elseif isNumber[T] then
 		return 'lua_pushnumber(L, ' .. name .. ');'
-	elseif T == 'const char *' or T == 'char *'  or T == 'const char*' or T == 'char*' then
+	elseif T == 'const char*' or T == 'char*' then
 		return 'lua_pushstring(L, ' .. name .. ');'
 	elseif T == 'bool' then
 		return 'lua_pushboolean(L, ' .. name .. ');'
-	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
+	elseif  T == 'void*' or T == 'const void*' then
 		return 'if (' .. name .. ' == NULL) lua_pushnil(L); else lua_pushlightuserdata(L, ' .. name .. ');'
 	else
 		local nilcheck = 'if (' .. name .. ' == NULL) lua_pushnil(L); else '
@@ -44,15 +44,18 @@ local function tolua( T, name, ref )
 end
 
 local function fromlua( T, index, ref )
+	if T == 'char *' or T == 'void *' or T == 'const void *' then error('!!') end
 	if isInt[T] then
 		return 'luaL_checkinteger(L, ' .. index .. ')'
 	elseif isNumber[T] then
 		return 'luaL_checknumber(L, ' .. index .. ')'
-	elseif T == 'const char *' or T == 'char *' or T == 'const char*' or T == 'char*' then
+	elseif T == 'const char*' then
 		return 'luaL_checkstring(L, ' .. index .. ')'
+	elseif T == 'char*' then
+		return '(char*)luaL_checkstring(L, ' .. index .. ')'
 	elseif T == 'bool' then
 		return 'lua_toboolean(L, ' .. index .. ')'
-	elseif T == 'void *' or T == 'const void *' or T == 'void*' or T == 'const void*' then
+	elseif T == 'void*' or T == 'const void*' then
 		return 'luaX_checklightuserdata(L, ' .. index .. ', "?")'
 	else
 		if ref then

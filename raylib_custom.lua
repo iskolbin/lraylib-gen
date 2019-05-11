@@ -1,5 +1,11 @@
 return {
 	funcs = {
+		USleep = {
+			name = 'USleep',
+			args = {{'us', 'long'}},
+			wrap = { name = 'isl_usleep', args = {'us'}}
+		},
+
 		GetDirectoryFiles = { src = [[
   int count;
   char **files = GetDirectoryFiles(luaL_checkstring(L, -1), &count);
