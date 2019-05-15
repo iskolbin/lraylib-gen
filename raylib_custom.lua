@@ -7,10 +7,18 @@ return {
 		},
 
 		GetDirectoryFiles = { src = [[
-  int count;
-  char **files = GetDirectoryFiles(luaL_checkstring(L, -1), &count);
-  for (int i = 0; i < count; i++) lua_pushstring(L, files[i]);
-  ClearDirectoryFiles();
+  DIR *dir = opendir(luaL_checkstring(L,1));
+  int count = 0;
+  if (dir != NULL)
+  {
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL)
+    {
+      lua_pushstring(L, ent->d_name);
+      count++;
+    }
+    closedir(dir);
+  }
   return count;]]},
 
 		GetDroppedFiles = { src = [[
