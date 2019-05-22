@@ -320,7 +320,7 @@ return function( conf, defs, custom )
 		end
 	end
 
-	print( 'static const luaL_Reg ' .. prefix .. 'functions[] = {' )
+	print( 'static const luaL_Reg ' .. prefix .. '_' .. conf.libname .. '_functions[] = {' )
 	-- Add module functions
 	for _, funcName in ipairs( funcNames ) do
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
@@ -511,7 +511,7 @@ return function( conf, defs, custom )
 	end
 
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
-	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
+	print( '  luaL_newlib(L, ' .. prefix .. '_' .. conf.libname .. '_functions);' )
 	for structName, struct in pairs( defs.structs ) do
 		if not struct.pass then
 			print( '  ' .. prefix .. structName .. '_register(L, NULL);' )
