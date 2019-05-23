@@ -20,10 +20,6 @@ return {
   ClearDroppedFiles();
   return count;]]},
 
-		--GetDirectoryFiles = { resultFinalizer = 'ClearDirectoryFiles()' },
-
-		--GetDroppedFiles = { resultFinalizer = 'ClearDroppedFiles()' },
-
 		GetFileNameWithoutExt = { resultFinalizer = 'free((void*)result)' },
 
 		CheckCollisionRaySphereEx = { src = [[
@@ -124,6 +120,38 @@ return {
   }
   return count;]]},
 
+		LoadMeshes = { src = [[
+  const char* fileName = luaL_checkstring(L, 1);
+  int meshCount;
+  Mesh* result = LoadMeshes(fileName, &meshCount);
+  for (int i = 0; i < meshCount; i++)
+  {
+    Mesh* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = result[i]; luaL_setmetatable(L, "Mesh");
+  }
+  return meshCount;]]},
+
+		ImageExtractPalette = { src = [[
+  Image image = (*(Image*)luaL_checkudata(L, 1, "Image"));
+  int maxPaletteSize = luaL_checkinteger(L, 2);
+  int extractCount;
+  Color* result = ImageExtractPalette(image, maxPaletteSize, &extractCount);
+  for (int i = 0; i < extractCount; i++)
+  {
+    Color* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = *result; luaL_setmetatable(L, "Color");
+  }
+  return extractCount;]]},
+
+		GetNextCodepoint = { src = [[
+  const char* text = luaL_checkstring(L, 1);
+  int count;
+  int result = GetNextCodepoint(text, &count);
+  lua_pushinteger(L, result);
+  lua_pushinteger(L, count);
+  return 2;]]},
+
+		GetWaveData = { pass = true },
+		LoadFontEx = { pass = true },
+		LoadFontData = { pass = true },
 		TextJoin = { returnsArgs = {{'count', 'int'}}, pass = true },
 		TextSplit = { pass = true },
 		TextAppend = { updatesArgs = {{'position', 'int'}}, pass = true },
