@@ -27,13 +27,12 @@ return {
   Vector3 spherePosition = (*(Vector3*)luaL_checkudata(L, 2, "Vector3"));
   float sphereRadius = luaL_checknumber(L, 3);
   Vector3 *collisionPoint = lua_newuserdata(L, sizeof *collisionPoint); luaL_setmetatable(L, "Vector3");
-	if (CheckCollisionRaySphereEx(ray, spherePosition, sphereRadius, collisionPoint)) {
+  if (CheckCollisionRaySphereEx(ray, spherePosition, sphereRadius, collisionPoint)) {
     return 1;
-	} else {
-		lua_pop(L, 1);
-  	return 0;
-	}
-	]]},
+  } else {
+    lua_pop(L, 1);
+    return 0;
+  }]]},
 
 		LoadModelAnimations = { src = [[
   int count = 0;

@@ -12,6 +12,22 @@ local isNumber = {
 	['float'] = true, ['double'] = true,
 }
 
+local function sortedpairs( t )
+	local sortedkeys, i = {}, 0
+	for k in pairs( t ) do
+		i = i + 1
+		sortedkeys[i] = k
+	end
+	table.sort( sortedkeys )
+	i = 0
+	return function()
+		if i < #sortedkeys then
+			i = i + 1
+			return sortedkeys[i], t[sortedkeys[i]]
+		end
+	end
+end
+
 local function tolua( T, name, ref )
 	name = name or 'result'
 	if isInt[T] then
@@ -140,13 +156,13 @@ return function( conf, defs, custom )
 	print( '  }' )
 	print( '}' )
 	print()
-	for refName, structName in pairs( defs.refs ) do
+	for refName, structName in sortedpairs( defs.refs ) do
 		if structName == 'OPAQUE' then
 			print( 'typedef struct { void *data; } Opaque' .. refName .. ';' )
 			print()
 		end
 	end
-	for structName, struct in pairs( defs.structs ) do
+	for structName, struct in sortedpairs( defs.structs ) do
 		if not struct.pass and struct.typedef then
 			print( 'typedef struct ' .. structName .. '{' )
 			for _, field in ipairs( struct.fields ) do
@@ -176,7 +192,7 @@ return function( conf, defs, custom )
 		end
 	end
 	
-	for funcName, f in pairs( defs.funcs ) do
+	for funcName, f in sortedpairs( defs.funcs ) do
 		local returns = f.returns
 		local hasPrimitives = isPrimitiveStruct[returns]
 		funcNames[#funcNames+1] = funcName
@@ -266,8 +282,6 @@ return function( conf, defs, custom )
 					else
 						print( '  ' .. returns .. ' result = ' .. funcName .. '(' .. table.concat( argNames, ', ' ) .. ');' )
 					end
-					local returnConverter = tolua( returns, nil, defs.refs[returns] )
-					print( '  ' .. returnConverter )
 					if f.resultFinalizer then
 						print( '  ' .. f.resultFinalizer .. ';' )
 					end
@@ -296,7 +310,7 @@ return function( conf, defs, custom )
 	end
 
 	-- Constructors for structs, for any structs zero constructor is exposed
-	for structName, struct in pairs( defs.structs ) do
+	for structName, struct in sortedpairs( defs.structs ) do
 		if not struct.pass then
 			print( 'static int ' .. prefix .. structName .. '_new(lua_State *L) {' )
 			print( '  ' .. structName .. '* obj = lua_newuserdata(L, sizeof *obj); luaL_setmetatable(L, "' .. structName .. '");' )
@@ -333,7 +347,7 @@ return function( conf, defs, custom )
 		print( '  {"' .. funcName .. '", ' .. prefix .. funcName .. '},' )
 	end
 	-- Add constructors and metatable accessor for structs
-	for structName, struct in pairs( defs.structs ) do
+	for structName, struct in sortedpairs( defs.structs ) do
 		if not struct.pass then
 			print( '  {"' .. structName .. '", ' .. prefix .. structName .. '_new},' )
 			print( '  {"' .. structName .. 'Meta", ' .. prefix .. structName .. '_meta},' )
@@ -344,7 +358,7 @@ return function( conf, defs, custom )
 	print()
 
 	-- Generate metatables for structs
-	for structName, struct in pairs( defs.structs ) do
+	for structName, struct in sortedpairs( defs.structs ) do
 		if not struct.pass then
 			local primitiveFields = isPrimitiveStruct[structName]
 			if primitiveFields then
@@ -517,12 +531,12 @@ return function( conf, defs, custom )
 
 	print( 'LUAMOD_API int luaopen_' .. conf.libname .. '(lua_State *L) {' )
 	print( '  luaL_newlib(L, ' .. prefix .. 'functions);' )
-	for structName, struct in pairs( defs.structs ) do
+	for structName, struct in sortedpairs( defs.structs ) do
 		if not struct.pass then
 			print( '  ' .. prefix .. structName .. '_register(L, NULL);' )
 		end
 	end
-	for refName, structName in pairs( defs.refs ) do
+	for refName, structName in sortedpairs( defs.refs ) do
 		if defs.structs[structName] ~= nil then
 			print( '  ' .. prefix .. structName .. '_register(L, "' .. refName .. '");' )
 		end

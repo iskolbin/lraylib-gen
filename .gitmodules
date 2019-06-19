@@ -7,3 +7,6 @@
 [submodule "str"]
 	path = str
 	url = git@github.com:iskolbin/lstr
+[submodule "raygui"]
+	path = raygui
+	url = git@github.com:raysan5/raygui
