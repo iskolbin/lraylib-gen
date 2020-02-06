@@ -26,9 +26,10 @@ return function( fileName, apiDef, aliases )
 	local api = {
 		header = fileName,
 		funcs = {},
+		enums = {},
 		consts = {},
 		structs = {},
-		refs = {},
+		opaque = {},
 	}
 
 	local bodyName, bodyArgs, comment
@@ -46,11 +47,8 @@ return function( fileName, apiDef, aliases )
 			s, varargIndex = s:gsub( '%,%s%.%.%.', '' )
 			local isVararg = varargIndex > 0
 
-			if apiDef == 'RLAPI' then
-				bodyName, bodyArgs, comment = s:match( 'RLAPI (.+)%((.-)%);%s*//%s*(.+)' )
-			else
-				bodyName, bodyArgs = s:match( apiDef .. ' (.-)%((.-)%)' )
-			end
+			bodyName, bodyArgs = s:match( apiDef .. ' (.-)%((.-)%)' )
+			comment = line:match('//%s*(.+)')
 
 			-- Parse function name and return type
 			local funcName, returnType = parseType( bodyName )
@@ -68,7 +66,7 @@ return function( fileName, apiDef, aliases )
 						i = i + 1
 						local argName, argType = parseType( arg )
 						argType = unalias( argType )
-						args[i] = {argName, argType}
+						args[i] = {name = argName, type = argType}
 					end
 					if i > 0 then
 						func.args = args
@@ -84,7 +82,8 @@ return function( fileName, apiDef, aliases )
 				if comment ~= nil and comment ~= '' then
 					func.comment = comment
 				end
-				api.funcs[funcName] = func
+				func.name = funcName
+				api.funcs[#api.funcs+1] = func
 				s = nil
 			else
 				local newComment = line:match('//%s*(.+)')
@@ -97,7 +96,7 @@ return function( fileName, apiDef, aliases )
 		end
 	end
 
-	local isReadingEnum = false
+	local isReadingEnum, enum = false, nil
 	for line in io.lines( fileName ) do
 		if not isReadingEnum and line:match( '^typedef enum ' ) then
 			local alreadyRead = false
@@ -105,14 +104,21 @@ return function( fileName, apiDef, aliases )
 				alreadyRead = true
 			end
 			isReadingEnum = not alreadyRead
+			enum = {values = {}}
 		elseif isReadingEnum then
-			if line:match( '}' ) then
+			local enumName = line:match( '}%s*([%S]+)%s*;')
+			if enumName then
 				isReadingEnum = false
+				enum.name = enumName
+				api.enums[#api.enums+1] = enum
+				enum = {values = {}}
 			else
 				if not line:match( '^%s*//' ) then
 					local name = line:match( '%s*([%u%dx_]+)' )
 					if name then
-						api.consts[#api.consts+1] = {name, "integer"}
+						local value = line:match( '=%s*([%S]+)%s*,' )
+						local newComment = line:match('//%s*(.+)')
+						enum.values[#enum.values+1] = {name = name, value = value and tonumber(value) or nil, comment = newComment}
 					end
 				end
 			end
@@ -121,9 +127,9 @@ return function( fileName, apiDef, aliases )
 			if name then
 				value = value:gsub( 'f', '' )	
 				if tonumber( value ) == math.floor( tonumber( value )) then
-					api.consts[#api.consts+1] = {name, "integer"}
+					api.consts[#api.consts+1] = {name, "int"}
 				else
-					api.consts[#api.consts+1] = {name, "number"}
+					api.consts[#api.consts+1] = {name, "float"}
 				end
 			else
 				name, value = line:match( '#define%s+([%u_]+)%s+CLITERAL' )
@@ -144,7 +150,6 @@ return function( fileName, apiDef, aliases )
 	end
 
 	local struct = {}
-	local refs = {}
 	local isReadingStruct, isComment = false, false
 	for line in io.lines( fileName ) do
 		if line:match('%s+%/%*') then
@@ -169,10 +174,12 @@ return function( fileName, apiDef, aliases )
 							local trimmedFieldType = (fieldType .. stars):gsub( '%s+%*', '*' )
 							fieldType, fieldLength = processStructArrayFields( trimmedFieldType, fieldLength )
 							fieldType = unalias( fieldType )
-							local field = {name, fieldType}
+							local field = {name = name, type = fieldType}
 							if fieldLength then
-								field[#field+1] = fieldLength
+								field.length = fieldLength
 							end
+							local newComment = line:match('//%s*(.+)')
+							field.comment = newComment
 							struct.fields[#struct.fields+1] = field
 						end
 					end
@@ -181,37 +188,50 @@ return function( fileName, apiDef, aliases )
 				local structName = line:match( 'typedef struct%s-(%w-)%s*{' )
 				if structName then
 					isReadingStruct = true
-					struct = {fields = {}}
-					api.structs[structName] = struct
+					struct = {name = structName, fields = {}}
+					api.structs[#api.structs+1] = struct
 				else
 					local structName, ref = line:match( 'typedef struct%s+(%w+)%s*%*-%s*(%w+)%s*;' )
 					if structName and ref then
-						api.refs[ref] = structName
+						api.opaque[#api.opaque+1] = {name = structName}
 					end
 				end
 			end
 		end
 	end
-	for refName, structName in pairs( api.refs ) do
-		if api.structs[structName] == nil then
-			api.refs[refName] = 'OPAQUE'
-		end
-	end
 
-	for structName, struct in pairs( api.structs ) do
+	for _, struct in ipairs( api.structs ) do
+		local structName = struct.name
+		local countsMap = {}
+		for _, name_count in ipairs( struct.counts or {} ) do
+			countsMap[name_count[1]] = name_count[2]
+		end
 		local fieldsMap, fieldCounts = {}, {}
 		for _, field in ipairs( struct.fields ) do
-			fieldsMap[field[1]] = field
-			if field[1]:sub( -5 ) == 'Count' then
-				fieldCounts[field[1]] = true
+			local fieldName = field.name
+			fieldsMap[fieldName] = field
+			if fieldName:sub( -5 ) == 'Count' then
+				fieldCounts[fieldName] = true
 			end
 		end
 		for nameCount in pairs( fieldCounts ) do
 			local singular = nameCount:sub( 1, -6 )
 			local field = fieldsMap[singular] or fieldsMap[singular .. 's'] or fieldsMap[singular .. 'es'] or fieldsMap[singular:sub( 1, -3 ) .. 'ices']
 			if field then
-				field[4] = nameCount
+				local fieldName = field.name
+				field.constraint = nameCount
+				if not countsMap[fieldName] then
+					countsMap[fieldName] = nameCount
+				end
 			end
+		end
+		local counts = {}
+		for name, count in pairs( countsMap ) do
+			counts[#counts+1] = {name, count}
+		end
+		table.sort( counts, function( a, b ) return a[1] < b[1] end )
+		if next( counts ) then
+			struct.counts = counts
 		end
 	end
 	return api
