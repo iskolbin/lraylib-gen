@@ -12,8 +12,8 @@ local function converttype(type_, length, constraint)
 	local long = type_:match('long%s*'); if long then type_ = type_:gsub(long, ''); t[#t+1] = '"long": true' end
 	local short = type_:match('short%s*'); if short then type_ = type_:gsub(short, ''); t[#t+1] = '"short": true' end
 	local indirection = 0
-	if length then if length ~= '?' then t[#t+1] = '"length": ' .. length else indirection = indirection + 1 end end
-	if constraint then t[#t+1] = '"constraint": "' .. constraint .. '"' end
+	if length then if length ~= '?' then t[#t+1] = '"length": [' .. length .. ']'else indirection = indirection + 1 end end
+	if constraint then t[#t+1] = '"constraint": ["' .. constraint .. '"]' end
 	type_ = type_:gsub(' ', '')
 	local stars = type_:match('%*+'); if stars then type_ = type_:gsub(stars, ''); indirection = indirection + #stars end
 	if type_ == 'void' and indirection > 0 then type_ = 'untyped' end--; indirection = indirection - 1 end

@@ -10,35 +10,50 @@ end
 
 local defs = readfile(...)
 
-local structsmap, opaquemap = {}, {}
-local intsmap = {
-	int = true, long = true, short = true, unsigned = true, signed = true,
+local integersmap = {
+	char = true, int = true, long = true, short = true, unsigned = true, signed = true,
 	uint8_t = true, uint16_t = true, uint32_t = true, uint64_t = true,
 	int8_t = true, int16_t = true, int32_t = true, int64_t = true
 }
-local floatsmap = {
+
+local numbersmap = {
 	double = true, float = true
 }
 
+local structsmap = {}
 for _, conf in pairs(defs.structs) do
 	structsmap[conf.name] = conf
 end
+
+local opaquemap = {}
 for _, conf in pairs(defs.opaque) do
 	opaquemap[conf.name] = conf
 end
 
 local function fromlua(stackidx, type_)
 	local typename = type_.type
-	if typename == 'bool' then
+	if typename == 'cstring' and indirection == 1 then
+		return 'luaL_checkstring(L, ' .. stackidx .. ');'
+	elseif type_.indirection then
+		return 'luaL_error("Cannot index indirect fields");'
+	elseif typename == 'char' and not type_.unsigned and not type_.signed and #(type_.length or {}) == 1 then
+		return 'luaL_checkstring(L, ' .. stackidx .. ');'
+	elseif type_.length then
+		return 'luaL_error("Cannot index arrays");'
+	elseif typename == 'bool' then
 		return 'lua_toboolean(L, ' .. stackidx .. ')'
-	elseif intsmap[typename] then
-		return 'lua_pushinteger(L, '.. stackidx .. ')'
-	elseif floatsmap[typename] then
-		return 'lua_pushnumber(L, ' .. stackidx .. ')'
+	elseif integersmap[typename] then
+		return 'luaL_checkinteger(L, '.. stackidx .. ')'
+	elseif numbersmap[typename] then
+		return 'luaL_checknumber(L, ' .. stackidx .. ')'
+	elseif typename == 'cstring' then
+		return 'luaL_checkstring(L, ' .. stackidx .. ')'
 	elseif structsmap[typename] then
 		return 'luaL_checkudata(L, ' .. stackidx .. ', "' .. typename .. '")'
+	elseif opaquemap[typename] or typename == 'untyped' then
+		return 'lua_touserdata(L, ' .. stackidx .. ')' 
 	else
-		return 'ERROR' .. tostring(type_.type)
+		return 'luaL_error(L, "Unsupported type");'
 	end
 end
 
@@ -46,14 +61,14 @@ local function tolua(name, type_)
 	local typename = type_.type
 	if typename == 'bool' then
 		return 'lua_pushboolean(L, ' .. name .. ');'
-	elseif intsmap[typename] then
+	elseif integersmap[typename] then
 		return 'lua_pushinteger(L, ' .. name .. ');'
-	elseif floatsmap[typename] then
+	elseif numbersmap[typename] then
 		return 'lua_pushnumber(L, ' .. name .. ');'
-	elseif type_ == 'cstring' then
+	elseif typename == 'cstring' then
 		return 'lua_pushstring(L, ' .. name .. ');'
 	elseif structsmap[typename] then
-		return typename .. '* udata = lua_newuserdata(L, sizeof *udata); *udata = ' .. name .. '; luaL_setmetatable(L, "' .. typename .. '");'
+		return typename .. '* userdata = lua_newuserdata(L, sizeof *userdata); *userdata = ' .. name .. '; luaL_setmetatable(L, "' .. typename .. '");'
 	elseif opaquemap[typename] or typename == 'untyped' then
 		return 'if (' .. name .. ' == NULL) lua_pushnil(L); else lua_pushlightuserdata(L, ' .. name .. ');'
 	else
@@ -79,7 +94,7 @@ for i, struct in ipairs(defs.structs) do
 	print('  const char *name = luaL_checkstring(L, -2);')
 	for j, field in ipairs(struct.fields) do
 		print('  if (strlen(name, "' .. field.name .. '") == 0) {')
-		print('    ' .. fromlua(-1, field)) 
+		print('    obj->' .. field.name .. ' = ' .. fromlua(-1, field) .. ';')
 		print('    return 0;')
 		print('  }')
 	end
@@ -99,13 +114,23 @@ for i, struct in ipairs(defs.structs) do
 	print()
 end
 
---[[
 for i, func in ipairs(defs.functions) do
 	print('static int l_raylib_' .. func.name .. '(lua_State *L) {')
-	--for j, arg in ipairs(func.args) do
-	--	print('  ' .. arg.type .. ' ' .. arg.name .. ' = '
-	--end
-	print('  return ' .. (func.returns and '1' or '0')) 
+	if not func.args and not func.returns then
+		print( '  (void)L; // Suppress unused warning' )
+	end
+	local strargs = {}
+	if func.args then
+		for j, arg in ipairs(func.args) do
+			print('  ' .. arg.type .. ' ' .. arg.name .. ' = ' .. fromlua(-#func.args+j-1, arg) .. ';')
+			strargs[j] = arg.name
+		end
+	end
+	print('  ' .. (func.returns and (func.returns.type .. ' result = ') or '') .. func.name .. '(' .. table.concat(strargs, ', ') .. ');')
+	if func.returns then
+		print('  ' .. tolua('result', func.returns))
+	end
+	print('  return ' .. (func.returns and '1' or '0') .. ';') 
 	print('}')
+	print()
 end
---]]
